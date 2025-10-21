@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(test_lib C CXX)
+project(motor_control C CXX)
 
 # Nastavte platformu a procesor
 set(MCU atmega328p)
@@ -8,20 +8,29 @@ set(F_CPU 16000000UL)  # Nastavte frekvenci procesoru (zde 16 MHz pro Arduino Un
 option(TARGET_AVR "Compile for AVR microcontroller" ON)
 
 include_directories(${CMAKE_SOURCE_DIR})
+include_directories(${CMAKE_SOURCE_DIR}/include)
 
 # Nastavte zdrojové soubory
 set(SOURCES
 
     src/arduino.cpp  
-    src/usart.cpp
-    src/CircularLogger.cpp
-    src/Sketch.cpp   
+
     src/timer_control.cpp
+    src/dc_control.cpp
+    src/servo_control.cpp
     #src/motor.cpp
     src/ramp.cpp
 
 
 )
+
+# This may be handy when will build library (but does not work as chat gpt suggested that)
+#target_include_directories(motor_control
+#    PUBLIC
+#        ${CMAKE_CURRENT_SOURCE_DIR}/include
+#    PRIVATE
+#        ${CMAKE_CURRENT_SOURCE_DIR}/src/internal
+#)
 
 
 # Nastavení kompilátoru na AVR GCC
@@ -59,26 +68,26 @@ endif()
 # Přidejte spustitelný soubor
 if(TARGET_AVR)
     # Vytvoření spustitelného souboru pro AVR
-    add_executable(test_lib.elf ${SOURCES})
+    add_executable(motor_control.elf ${SOURCES})
 
     # Přidejte pravidla pro generování HEX souboru
-    add_custom_command(TARGET test_lib.elf POST_BUILD
-        COMMAND avr-objcopy -O ihex -R .eeprom test_lib.elf test_lib.hex
+    add_custom_command(TARGET motor_control.elf POST_BUILD
+        COMMAND avr-objcopy -O ihex -R .eeprom motor_control.elf motor_control.hex
         COMMENT "Generating HEX file from ELF"
     )
 
     # Možnost nahrát do Arduina pomocí `avrdude`
     add_custom_target(upload
-        #COMMAND avrdude -v -patmega328p -carduino -P/dev/ttyUSB0 -b115200 -D -Uflash:w:test_lib.hex:i
-        COMMAND avrdude -v -patmega328p -carduino -P/dev/ttyACM0 -b115200 -D -Uflash:w:test_lib.hex:i
-        DEPENDS test_lib.elf
+        #COMMAND avrdude -v -patmega328p -carduino -P/dev/ttyUSB0 -b115200 -D -Uflash:w:motor_control.hex:i
+        COMMAND avrdude -v -patmega328p -carduino -P/dev/ttyACM0 -b115200 -D -Uflash:w:motor_control.hex:i
+        DEPENDS motor_control.elf
         COMMENT "Uploading to Arduino"
     )
 
     add_custom_target(uploadUSB
-        #COMMAND avrdude -v -patmega328p -carduino -P/dev/ttyUSB0 -b115200 -D -Uflash:w:test_lib.hex:i
-        COMMAND avrdude -v -patmega328p -carduino -P/dev/ttyUSB0 -b115200 -D -Uflash:w:test_lib.hex:i
-        DEPENDS test_lib.elf
+        #COMMAND avrdude -v -patmega328p -carduino -P/dev/ttyUSB0 -b115200 -D -Uflash:w:motor_control.hex:i
+        COMMAND avrdude -v -patmega328p -carduino -P/dev/ttyUSB0 -b115200 -D -Uflash:w:motor_control.hex:i
+        DEPENDS motor_control.elf
         COMMENT "Uploading to Arduino"
     )
 

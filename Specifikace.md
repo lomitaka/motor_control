@@ -7,3 +7,17 @@ Motors that library should be able to handle are:
 
 
 Focus is on simplicity usability and variability. 
+
+
+1-5 servo motors. 
+  - functionaliy: specify position of each motor 
+
+1-5 dc motors (fixed frequence 250Hz).
+  - specify power given to the motor. 
+
+
+  TODO: -Preskalovat OCRA, a OCRB hodnoty.
+        -Otestovat jestli dc compare match netrva prilis dlouho, ze by mohl preskoci nejaky motor
+
+
+

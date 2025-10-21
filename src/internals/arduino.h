@@ -20,3 +20,5 @@ int digitalRead(uint8_t pin);
 void digitalWrite(uint8_t pin, uint8_t value);
 uint16_t analogRead(uint8_t pin) ;
 void delay(double ms);
+
+uint8_t mapPinInnerRepresentation(uint8_t pin);
