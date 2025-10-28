@@ -6,8 +6,7 @@
 */
 
 
-#include "headers/usart.h"
-#include "headers/timer_control.h"
+#include "test/internals/usart.h"
 #define __DELAY_BACKWARD_COMPATIBLE__
 #include "util/delay.h"
 #include "avr/io.h"
@@ -29,7 +28,7 @@ void USART_Init(unsigned int ubrr)
 	UBRR0L = (unsigned char)ubrr;
 
 	//Enable receiver and transmitter
-	UCSR0B = (1<<RXEN0)|(1<<TXEN0)| (1<<UDRIE0);//  | (1 << RXCIE0);
+	UCSR0B = (1<<RXEN0)|(1<<TXEN0);//| (1<<UDRIE0);//  | (1 << RXCIE0);
 	/* Set frame format: 8data, 1stop bit */
 	UCSR0C = (3<<UCSZ00);
 	/*UCSR0C = 0x06;*/
@@ -119,7 +118,7 @@ void USART_Transmit(unsigned char data)
 	;
 	// Put data into buffer, sends the data 
 	UDR0 = data;
-	_delay_ms(1.0f);
+	_delay_ms(0.2f);
 }
 
 

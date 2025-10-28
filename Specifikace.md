@@ -16,7 +16,7 @@ Focus is on simplicity usability and variability.
   - specify power given to the motor. 
 
 
-  TODO: -Preskalovat OCRA, a OCRB hodnoty.
+  TODO: 
         -Otestovat jestli dc compare match netrva prilis dlouho, ze by mohl preskoci nejaky motor
 
 

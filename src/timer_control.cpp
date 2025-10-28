@@ -8,6 +8,13 @@
 //singleton implementation of timer control (to controll timer1)
 TimerControl timer_control;
 
+// Definice static členských proměnných
+volatile uint8_t TimerControl::curr_motor_i = 0;
+volatile uint8_t TimerControl::curr_dc_index = 0;
+volatile uint16_t TimerControl::curr_dc_value = 0;
+volatile uint8_t TimerControl::last_error_[5] = {0, 0, 0, 0, 0};
+volatile uint8_t TimerControl::last_error_global = 0;
+
 
 
 int TimerControl::getLastError()
@@ -15,6 +22,10 @@ int TimerControl::getLastError()
     return last_error_global;
 }
 
+
+TimerControl::TimerControl(){   
+    setup_Timers();
+}
 
 /// Initializes Timer1 for precise timing control.
 /// 

@@ -8,6 +8,11 @@
 
 #include "stddef.h"
 
+volatile uint8_t ServoControl::serv_motor_count_ = 0;
+volatile uint16_t ServoControl::serv_motors_[5] = {0, 0, 0, 0, 0};
+volatile uint8_t ServoControl::serv_port_pin_[5] = {0, 0, 0, 0, 0};
+
+
 
 ServoControl::ServoControl(uint8_t pin) {
 
@@ -91,11 +96,14 @@ void OnTimer1CompareMatchServo(){
     }
 }
 
-//
+// 1 tick = 62.5 ns
+// min = 1ms = 1 000 000 ns = 16000 ticks
+// max = 2ms = 2 000 000 ns = 32000 ticks
+//rescaling inpug value interval (-1000, 1000) to > (16000,32000)
 void OnTimer1OwerflowServo(){
     TimerControl::curr_motor_i = (TimerControl::curr_motor_i +1) % 5;
     if (ServoControl::serv_port_pin_[TimerControl::curr_motor_i] > 0){
         TimerControl::setPinHigh(ServoControl::serv_port_pin_[TimerControl::curr_motor_i]);
-        OCR1A = (uint16_t)(ServoControl::serv_motors_[TimerControl::curr_motor_i]*1600+24000)+112;
+        OCR1A = (uint16_t)((ServoControl::serv_motors_[TimerControl::curr_motor_i]+1000)*8+16000);
     }
 }

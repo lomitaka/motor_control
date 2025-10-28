@@ -1,19 +1,15 @@
 ﻿/*Begining of Auto generated code by Atmel studio */
 
-#include "headers/logic.h"
-#include "headers/globalVariables.h"
-#include "headers/usart.h"
+#include "test/internals/usart.h"
 #include "util/delay.h"
-#include "headers/arduino.h"
 #include "avr/io.h"
 //#include "stddef.h"
 #include <avr/interrupt.h>
-#include "headers/fces.h"
-#include "headers/CircularLogger.h"
 #include <stdint.h>
-#include "headers/motor.h"
-#include "headers/timer_control.h"
+#include <stddef.h>
+#include "test/internals/arduino.h"
 
+#include "motor_control/servo_control.h"
 /* -------------- CONSTATNST */
 #define FOSC 16000000 // Clock Speed
 //#define BAUD 115200
@@ -52,15 +48,19 @@ void readLine(char *buffer, uint8_t buffer_size) {
     int received_char;
 
 	while (1) {
-		received_char = USART_PopReadBuffer(); // Přijmi znak
+		received_char = USART_Receive(); // Přijmi znak
 		if (received_char == -1){
+					//USART_WRITE_UINT(received_char);
+					//USART_WRITE_S(" ");
 					buffer[index] = '\0'; 
 		return;
 		}
 		if (received_char == '\n' || received_char == '\r') { // Pokud je konec řádku
+			//USART_WRITE_S("TERMINATING");
 			buffer[index] = '\0'; // Ukonči řetězec
 			break;
 		} else if (index < buffer_size - 1) { // Pokud je místo v bufferu
+			//USART_WRITE_S("ADDING TO BUFFER");
 			buffer[index++] = received_char; // Přidej znak do bufferu
 		} else {
 			// Ochrana proti přetečení: ukonči řetězec
@@ -71,61 +71,42 @@ void readLine(char *buffer, uint8_t buffer_size) {
 	}
 }
 
-ServoMotor leftMotor(WH_LEFT);
+ServoControl leftMotor(WH_LEFT);
 
 // Funkce pro analýzu příkazu
 void processCommand(const char *command) {
 	if (command[0] == 'H') {
-		USART_WRITE_S("S = start \n");
-		USART_WRITE_S("P = pause \n");
 		USART_WRITE_S("S123 = 1.23  \n");
 		USART_WRITE_S("CI123 = 1.23  \n");
 		USART_WRITE_S("CB123 = 1.23  \n");
 	}
 
-	if (command[0] == 'S') {
-        // Příkaz START
-        
-        USART_WRITE_S("Robot started.\n");
-    } else if (command[0] == 'P') {
-        // Příkaz PAUSE
-        
-        USART_WRITE_S("Robot paused.\n");
-    } else {
-        // Příkaz SET - hledáme parametr a hodnotu
-        char param = command[0];         // Pátý znak je název parametru
-        int16_t value = 0;               // Hodnota parametru
-        uint8_t i = 1;                   // Pozice, kde začíná hodnota
-        uint8_t sign = 1;
-		if (command[i] == '-') {
-			i++; // Přeskoč znaménko mínus
-			sign = -1;
-		}
+	// Příkaz SET - hledáme parametr a hodnotu
+	int16_t value = 0;               // Hodnota parametru
+	uint8_t i = 0;                   // Pozice, kde začíná hodnota
+	uint8_t sign = 1;
+	if (command[i] == '-') {
+		i++; // Přeskoč znaménko mínus
+		sign = -1;
+	}
 
-		// Přečti hodnotu znaku po znaku
-        while (command[i] >= '0' && command[i] <= '9') {
-            const char c  = command[i];
-			USART_WRITE_UINT((uint8_t)c);
-			value = value * 10 + (command[i] - '0');
-            i++;
-        }
-		value = value * sign;
+	// Přečti hodnotu znaku po znaku
+	while (command[i] >= '0' && command[i] <= '9') {
+		//USART_WRITE_UINT((uint8_t)c);
+		value = value * 10 + (command[i] - '0');
+		i++;
+	}
+	value = value * sign;
 
-        if (value >= PARAM_MIN && value <= PARAM_MAX) {
-            // Nastavení parametru
-            if (param == 'A') {
-				leftMotor.setTarget(value);
-				USART_WRITE_S("A set to"); USART_WRITE_FLOAT(value); USART_WRITE_S("\r\n");
-			}
-            else {
-                USART_WRITE_S("Error: Unknown parameter.\n");
-                return;
-            }
-            USART_WRITE_S("Parameter updated.\n");
-        } else {
-            USART_WRITE_S("Error: Value out of range (0-255).\n");
-        }
-    } 
+	if (value >= PARAM_MIN && value <= PARAM_MAX) {
+		// Nastavení parametru
+		leftMotor.setTarget(value);
+		USART_WRITE_S("A set to"); USART_WRITE_FLOAT(value); USART_WRITE_S("\r\n");
+		
+	} else {
+		USART_WRITE_S("Error: Value out of range (-1000-1000).\n");
+	}
+    
 }
 
 
@@ -134,13 +115,11 @@ void processCommand(const char *command) {
 void setup() {
 	
 		
-	
 	pinMode(WH_LEFT,OUTPUT);
 	pinMode(WH_RIGHT,OUTPUT);
 
 	USART_Init(MYUBRR);
-	
-	timer_control.setup_Timers();
+
 	
 	//lastCallTime = millis();
 }
@@ -157,13 +136,13 @@ void loop() {
 	//lastCallTime = millis();	
 	
 	//
-	USART_WRITE_S("GOT Reading cmd\r");
+	
 	readLine(buffer, BUFFER_SIZE); // Načtení příkazu
 	if (buffer[0] != '\0'){
-		//USART_WRITE_S("GOT CMD\r");
-		//delay(2);
-		//USART_WRITE_S(buffer);
-		//delay(2);
+		USART_WRITE_S("GOT CMD\r");
+		delay(2);
+		USART_WRITE_S(buffer);
+		delay(2);
 		processCommand(buffer);       // Zpracování příkazu
 	}
 	
@@ -172,6 +151,7 @@ void loop() {
 
 int main(){				
 	setup();
+	USART_WRITE_S("SERIAL ONLINE:\r\n");
 	while(true){
 		loop();
 	}

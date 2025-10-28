@@ -11,7 +11,6 @@
 
 
 //#include <Arduino.h>
-#include "logic.h"
 
 void USART_TransmitCND(unsigned char data);
 void USART_WRITE_S(const char * s);

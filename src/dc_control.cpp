@@ -27,6 +27,11 @@
 */
 
 
+volatile uint8_t DCControl::dc_motor_count_ = 0;
+volatile uint16_t DCControl::dc_motors_[5] = {0, 0, 0, 0, 0};
+volatile uint8_t DCControl::dc_port_pin_[5] = {0, 0, 0, 0, 0};
+volatile uint16_t DCControl::dc_motors_buffer_[5] = {0, 0, 0, 0, 0};
+
 DCControl::DCControl(uint8_t pin){
     init(pin);
 }
@@ -128,7 +133,7 @@ void OnTimer1OwerflowDC(){
 
     //finds minimal value of the 
     uint8_t minInd = 0;
-    uint16_t minVal = 65536;
+    uint16_t minVal = 65535;
     for (uint8_t i = 0; i < DCControl::dc_motor_count_;i++){
         if (minVal > DCControl::dc_motors_buffer_[i]){
             minInd = i;

@@ -6,22 +6,25 @@ set(MCU atmega328p)
 set(F_CPU 16000000UL)  # Nastavte frekvenci procesoru (zde 16 MHz pro Arduino Uno)
 
 option(TARGET_AVR "Compile for AVR microcontroller" ON)
+option(BUILD_LIBRARY_ONLY "Build only the library, not the executable" OFF)
 
 include_directories(${CMAKE_SOURCE_DIR})
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
-# Nastavte zdrojové soubory
-set(SOURCES
-
-    src/arduino.cpp  
-
+# Nastavte zdrojové soubory pro knihovnu
+set(LIBRARY_SOURCES
     src/timer_control.cpp
     src/dc_control.cpp
     src/servo_control.cpp
-    #src/motor.cpp
     src/ramp.cpp
+    src/arduino.cpp
+)
 
-
+# Zdrojové soubory pro executable (hlavní program)
+set(EXECUTABLE_SOURCES
+    test/Sketch.cpp
+    test/usart.cpp
+    test/arduino.cpp
 )
 
 # This may be handy when will build library (but does not work as chat gpt suggested that)
@@ -67,28 +70,57 @@ endif()
 
 # Přidejte spustitelný soubor
 if(TARGET_AVR)
-    # Vytvoření spustitelného souboru pro AVR
-    add_executable(motor_control.elf ${SOURCES})
-
-    # Přidejte pravidla pro generování HEX souboru
-    add_custom_command(TARGET motor_control.elf POST_BUILD
-        COMMAND avr-objcopy -O ihex -R .eeprom motor_control.elf motor_control.hex
-        COMMENT "Generating HEX file from ELF"
+    # Vytvoření statické knihovny pro AVR
+    add_library(motor_control_lib STATIC ${LIBRARY_SOURCES})
+      # Nastavení include directories pro knihovnu
+    target_include_directories(motor_control_lib PUBLIC 
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}
     )
+    
+    # Vytvoření spustitelného souboru pouze pokud není BUILD_LIBRARY_ONLY
+    if(NOT BUILD_LIBRARY_ONLY)
+        # Vytvoření spustitelného souboru pro AVR
+        add_executable(motor_control.elf ${EXECUTABLE_SOURCES})
+          # Linkování knihovny k executable
+        target_link_libraries(motor_control.elf motor_control_lib)
 
-    # Možnost nahrát do Arduina pomocí `avrdude`
-    add_custom_target(upload
-        #COMMAND avrdude -v -patmega328p -carduino -P/dev/ttyUSB0 -b115200 -D -Uflash:w:motor_control.hex:i
-        COMMAND avrdude -v -patmega328p -carduino -P/dev/ttyACM0 -b115200 -D -Uflash:w:motor_control.hex:i
-        DEPENDS motor_control.elf
-        COMMENT "Uploading to Arduino"
+        # Přidejte pravidla pro generování HEX souboru
+        add_custom_command(TARGET motor_control.elf POST_BUILD
+            COMMAND avr-objcopy -O ihex -R .eeprom motor_control.elf motor_control.hex
+            COMMENT "Generating HEX file from ELF"
+        )
+
+        # Možnost nahrát do Arduina pomocí `avrdude`
+        add_custom_target(upload
+            #COMMAND avrdude -v -patmega328p -carduino -P/dev/ttyUSB0 -b115200 -D -Uflash:w:motor_control.hex:i
+            COMMAND avrdude -v -patmega328p -carduino -P/dev/ttyACM0 -b115200 -D -Uflash:w:motor_control.hex:i
+            DEPENDS motor_control.elf
+            COMMENT "Uploading to Arduino"
+        )
+
+        add_custom_target(uploadUSB
+            #COMMAND avrdude -v -patmega328p -carduino -P/dev/ttyUSB0 -b115200 -D -Uflash:w:motor_control.hex:i
+            COMMAND avrdude -v -patmega328p -carduino -P/dev/ttyUSB0 -b115200 -D -Uflash:w:motor_control.hex:i
+            DEPENDS motor_control.elf            
+            COMMENT "Uploading to Arduino"
+        )
+    endif()
+
+    # Instalace knihovny a hlavičkových souborů
+    install(TARGETS motor_control_lib 
+        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION lib
     )
-
-    add_custom_target(uploadUSB
-        #COMMAND avrdude -v -patmega328p -carduino -P/dev/ttyUSB0 -b115200 -D -Uflash:w:motor_control.hex:i
-        COMMAND avrdude -v -patmega328p -carduino -P/dev/ttyUSB0 -b115200 -D -Uflash:w:motor_control.hex:i
-        DEPENDS motor_control.elf
-        COMMENT "Uploading to Arduino"
+    
+    install(DIRECTORY include/ 
+        DESTINATION include
+        FILES_MATCHING PATTERN "*.h"
+    )
+    
+    install(DIRECTORY src/internals/
+        DESTINATION include/internals
+        FILES_MATCHING PATTERN "*.h"
     )
 
 else()

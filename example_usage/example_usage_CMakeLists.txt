@@ -1,0 +1,43 @@
+# Příklad použití motor_control knihovny v jiném projektu
+
+cmake_minimum_required(VERSION 3.12)
+project(my_avr_project C CXX)
+
+# Nastavení pro AVR
+set(MCU atmega328p)
+set(F_CPU 16000000UL)
+
+# Nastavení kompilátoru
+set(CMAKE_SYSTEM_NAME Generic)
+set(CMAKE_C_COMPILER avr-gcc)
+set(CMAKE_CXX_COMPILER avr-g++)
+set(CMAKE_C_FLAGS "-Os -DF_CPU=${F_CPU} -mmcu=${MCU} -Wall -Wextra")
+set(CMAKE_CXX_FLAGS "-Os -DF_CPU=${F_CPU} -mmcu=${MCU} -Wall -Wextra -std=c++11")
+set(CMAKE_EXE_LINKER_FLAGS "-Wl,-gc-sections")
+
+# Přidání cest k hlavičkám (pokud jsou v systému)
+# include_directories(/usr/local/include)
+
+# NEBO pokud máte knihovnu lokálně:
+# include_directories(../motor_control_lib/include)
+
+# Zdrojové soubory vašeho projektu
+set(SOURCES
+    src/main.cpp
+)
+
+# Vytvoření executable
+add_executable(my_project.elf ${SOURCES})
+
+# Linkování s motor_control knihovnou
+# Pokud je knihovna nainstalovaná v systému:
+# target_link_libraries(my_project.elf motor_control_lib)
+
+# NEBO pokud máte knihovnu lokálně:
+# target_link_libraries(my_project.elf ${CMAKE_SOURCE_DIR}/../motor_control_lib/build_lib/libmotor_control_lib.a)
+
+# Generování HEX souboru
+add_custom_command(TARGET my_project.elf POST_BUILD
+    COMMAND avr-objcopy -O ihex -R .eeprom my_project.elf my_project.hex
+    COMMENT "Generating HEX file"
+)
