@@ -10,6 +10,7 @@
 #include "test/internals/arduino.h"
 
 #include "motor_control/servo_control.h"
+#include "src/internals/timer_control.h"
 /* -------------- CONSTATNST */
 #define FOSC 16000000 // Clock Speed
 //#define BAUD 115200
@@ -34,11 +35,11 @@
 
 
 #define BUFFER_SIZE 64 // Maximální délka příkazu
-#define PARAM_MIN -1000    // Minimální hodnota parametru
-#define PARAM_MAX 1000  // Maximální hodnota parametru
+#define PARAM_MIN -2000    // Minimální hodnota parametru
+#define PARAM_MAX 2000  // Maximální hodnota parametru
 
- int WH_LEFT=12;
- int WH_RIGHT=13;
+ uint8_t WH_LEFT=12;
+ uint8_t WH_RIGHT=13;
 
 //valid settigns
 //stty -F /dev/ttyACM0 57600 cs8 -parenb -cstopb
@@ -84,7 +85,7 @@ void processCommand(const char *command) {
 	// Příkaz SET - hledáme parametr a hodnotu
 	int16_t value = 0;               // Hodnota parametru
 	uint8_t i = 0;                   // Pozice, kde začíná hodnota
-	uint8_t sign = 1;
+	int8_t sign = 1;
 	if (command[i] == '-') {
 		i++; // Přeskoč znaménko mínus
 		sign = -1;
@@ -105,12 +106,14 @@ void processCommand(const char *command) {
 		
 	} else {
 		USART_WRITE_S("Error: Value out of range (-1000-1000).\n");
+		USART_WRITE_INT(value);
+		USART_WRITE_S("\n");
 	}
     
 }
 
 
-
+char dbg[64];
 
 void setup() {
 	
@@ -136,7 +139,12 @@ void loop() {
 	//lastCallTime = millis();	
 	
 	//
-	
+	//DDRB |= (1 << (3)); PORTB |= (1 << (3));
+	//leftMotor.setTarget(800);
+	//delay(2000);
+	//leftMotor.setTarget(300);
+	//delay(2000);
+
 	readLine(buffer, BUFFER_SIZE); // Načtení příkazu
 	if (buffer[0] != '\0'){
 		USART_WRITE_S("GOT CMD\r");
@@ -149,10 +157,39 @@ void loop() {
 
 }//loop
 
+void OnTimer1OwerflowServo();
+
 int main(){				
 	setup();
+
+	leftMotor.setTarget(000);
+
+
+	//TimerControl::setPinHigh(ServoControl::serv_pin_[TimerControl::curr_motor_i]);
+
+
+	//DDRB |= (1 << (3)); PORTB |= (1 << (3));
+	//for (int i = 0; i < 64;i++){dbg[i] = 0;}
 	USART_WRITE_S("SERIAL ONLINE:\r\n");
+	//for (int i = 0; i < 10;i++){USART_Transmit(serv_dbg[i]);}
+	USART_WRITE_S("\r\n");
+	
 	while(true){
 		loop();
+		/*USART_WRITE_S("TCNT1: ");
+		USART_WRITE_UINT(TCNT1);
+		USART_WRITE_S("\r\n");
+
+		USART_WRITE_S("OCR1A: ");
+		USART_WRITE_UINT(OCR1A);
+		USART_WRITE_S("\r\n");
+
+		if (digitalRead(12)){
+			USART_WRITE_S("ON");
+		} else {
+			USART_WRITE_S("OFF");
+		}
+		
+		delay(1);*/
 	}
 }

@@ -82,16 +82,15 @@ void digitalWrite(uint8_t pin, uint8_t value) {
 
 /**/
 int digitalRead(uint8_t pin) {
-	// Read the digital state of the pin
 	if (pin <= 7) {
 		return (PIND >> pin) & 1;
-		} else if (pin >= 8 && pin <= 13) {
+	} else if (pin >= 8 && pin <= 13) {
 		return (PINB >> (pin - 8)) & 1;
+	} else if (pin >= 14 && pin <= 19) { // A0-A5
+		return (PINC >> (pin - 14)) & 1;
 	}
-	// For other ports (e.g., C), you would add similar code.
-
-	// Return a default value if an invalid pin is provided
-	return 0;
+	// Invalid pin -> return LOW
+	return LOW;
 }
 
 
@@ -125,52 +124,6 @@ uint16_t analogRead(uint8_t pin) {
 }
 
 
-
-uint8_t mapPinInnerRepresentation(uint8_t pin){
-    
-    //gets arduino pin number and gets port for that pin:
-    //port: 1=A, 2=B, 3=C, 4=D
-    uint8_t port = (pin < 8) ? 2 : 3; // default to port B
-    switch(pin){
-        case 0: port = 3; break; //C
-        case 1: port = 3; break; //C
-        case 2: port = 3; break; //C
-        case 3: port = 3; break; //C
-        case 4: port = 3; break; //C
-        case 5: port = 3; break; //C
-        case 6: port = 3; break; //C
-        case 7: port = 3; break; //C
-        case 8: port = 2; break; //B
-        case 9: port = 2; break; //B
-        case 10: port = 2; break; //B
-        case 11: port = 2; break; //B
-        case 12: port = 4; break; //D
-        case 13: port = 4; break; //D
-        case 14: port = 1; break; //A
-        case 15: port = 1; break; //A
-        default: return 255; //error
-    }
-
-    //gets pin number on that port (0-7)
-    uint8_t pin_num = 0;
-    switch(port){
-        case 1:
-            pin_num = pin;
-            break;
-        case 2:
-            pin_num = pin - 8;
-            break;
-        case 3:
-            pin_num = pin - 16;
-            break;
-        case 4:
-            pin_num = pin - 24;
-            break;
-        default:
-            return 255; //error
-    }
-    return (port << 4) | (pin_num & 0x0F);
-};
 
 
 

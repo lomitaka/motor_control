@@ -6,7 +6,7 @@
 #include "stddef.h"
 
 //singleton implementation of timer control (to controll timer1)
-TimerControl timer_control;
+//TimerControl timer_control;
 
 // Definice static členských proměnných
 volatile uint8_t TimerControl::curr_motor_i = 0;
@@ -14,8 +14,12 @@ volatile uint8_t TimerControl::curr_dc_index = 0;
 volatile uint16_t TimerControl::curr_dc_value = 0;
 volatile uint8_t TimerControl::last_error_[5] = {0, 0, 0, 0, 0};
 volatile uint8_t TimerControl::last_error_global = 0;
+bool TimerControl::initialized = false;
 
 
+bool  TimerControl::isInitialized(){
+    return initialized;
+}
 
 int TimerControl::getLastError()
 {
@@ -23,9 +27,6 @@ int TimerControl::getLastError()
 }
 
 
-TimerControl::TimerControl(){   
-    setup_Timers();
-}
 
 /// Initializes Timer1 for precise timing control.
 /// 
@@ -54,7 +55,6 @@ void TimerControl::Timer1_Init() {
 void TimerControl::setPinHigh(uint8_t port_pin_code) {
     uint8_t port = (port_pin_code >> 4) & 0x0F;
     uint8_t pin = port_pin_code & 0x0F;
-
     switch (port) {
     //case 1: PORTA |= (1 << pin); break;
     case 2: PORTB |= (1 << pin); break;
@@ -79,7 +79,9 @@ void TimerControl::setPinLow(uint8_t port_pin_code) {
 
 void TimerControl::setup_Timers() {
     Timer1_Init();
+    initialized = true;
     sei();
+    
 }
 
 
@@ -88,7 +90,7 @@ void OnTimer1CompareMatchServo();
 
 // ISRs must be outside the class, but can call static member functions or access static members
 ISR(TIMER1_COMPA_vect) {	
-    OnTimer1CompareMatchDC();
+    //OnTimer1CompareMatchDC();
     OnTimer1CompareMatchServo();
     
 }
@@ -96,8 +98,10 @@ ISR(TIMER1_COMPA_vect) {
 void OnTimer1OwerflowServo();
 void OnTimer1OwerflowDC();
 
+extern char serv_dbg[64];
+
 ISR(TIMER1_OVF_vect) {
     OnTimer1OwerflowServo();
-    OnTimer1OwerflowDC();
+    //OnTimer1OwerflowDC();
 
 }

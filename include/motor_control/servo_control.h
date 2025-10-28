@@ -20,9 +20,6 @@
 
 class ServoControl {
 public:
-    ServoControl();
-
-
 
     ServoControl(uint8_t pin);
 
@@ -39,34 +36,26 @@ public:
     //in case of failure, get last error code
     int getLastError();
 
-private:
+//private:
     
-    
-
-    static  void setup_Timers();
-
     // Set motor value in range [-1000, 1000] for given index (0-4)
     static void setServMotorValue(uint8_t index, int16_t value);
 
     // Set port and pin for given motor index (0-4), port: 1=A, 2=B, 3=C, 4=D, pin: 0-7
-    static void setServMotorPortPin(uint8_t index, uint8_t port, uint8_t pin);
-    // Overloaded version: set port and pin using single byte (port in high nibble, pin in low nibble)
-    static void setServMotorPortPin(uint8_t index, uint8_t port_pin);
+    static void setServMotorPortPin(uint8_t index, uint8_t pin);
 
-    // Get time since start
-    static size_t getTimeSinceStart();
     // get index of first free motor
     static int8_t getServFreeMotorIndex();
     
     //detaches motor from given index
     void freeServIndex(uint8_t index);
-
+public:
     //how many motors are registered
     volatile static uint8_t serv_motor_count_;
     //motor values currently set (-1000 to 1000)
     volatile static uint16_t serv_motors_[5];
     //port and pin for each motor (0=disabled, else port in high nibble, pin in low nibble)
-    volatile static uint8_t serv_port_pin_[5];
+    volatile static uint8_t serv_pin_[5];
 
     friend void OnTimer1CompareMatchServo();
     friend void OnTimer1OwerflowServo();

@@ -38,7 +38,7 @@ DCControl::DCControl(uint8_t pin){
 
 uint8_t DCControl::init(uint8_t pin) {
 
-    props.port_pin_ = mapPinInnerRepresentation(pin);
+    props.port_pin_ = pin;
     if (props.port_pin_ == 255) {
         props.error_code_ = ErrorCodes::ERROR_INVALID_PIN;
         return props.error_code_;
@@ -125,7 +125,7 @@ void OnTimer1OwerflowDC(){
     //copy each value to buffer, that is going to be applied for computations. 
     for (uint8_t i = 0;i < DCControl::dc_motor_count_;i++){
         if (DCControl::dc_port_pin_[i] > 0){
-            TimerControl::setPinHigh(DCControl::dc_port_pin_[i]);
+            digitalWrite(DCControl::dc_port_pin_[i],true);
             //update buffer
             DCControl::dc_motors_buffer_[i] = DCControl::dc_motors_[i];
         }
@@ -166,8 +166,7 @@ void OnTimer1CompareMatchDC(){
     //
     while (true){
         //set pin to low
-        TimerControl::setPinLow(DCControl::dc_port_pin_[TimerControl::curr_dc_index]);
-        
+        digitalWrite(DCControl::dc_port_pin_[TimerControl::curr_dc_index],false);
         //search for next motor to bring down
         int8_t nextIndex = -1;
         for (uint8_t i = 0; i < DCControl::dc_motor_count_;i++){

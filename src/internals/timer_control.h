@@ -19,17 +19,17 @@
 
 class TimerControl {
 public:
-    TimerControl();
 
     static  void setup_Timers();
+    static bool isInitialized();
 
     //in case of failure, get last error code
-    int getLastError();
+    static int getLastError();
     
     static  void setPinHigh(uint8_t port_pin_code);
     static  void setPinLow(uint8_t port_pin_code);
   
-private:
+//private:
     volatile size_t timeSinceStart_;
     volatile static uint8_t curr_motor_i;
 
@@ -44,7 +44,7 @@ private:
     volatile static uint8_t last_error_global;
 
     static void Timer1_Init();
-
+    static bool initialized;
 
     friend void OnTimer1CompareMatchDC();
     friend void OnTimer1OwerflowDC();
@@ -54,5 +54,5 @@ private:
 
 
 
-extern TimerControl timer_control;
+//extern TimerControl timer_control;
 #endif // TIMER_CONTROL_H
