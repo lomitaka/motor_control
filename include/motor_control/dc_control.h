@@ -8,9 +8,9 @@ class DCControl {
 public:
     DCControl();
 
-    DCControl(uint8_t pin);
+    DCControl(uint8_t pin_pwm, uint8_t pin_direction);
 
-    uint8_t init(uint8_t pin);
+    uint8_t init(uint8_t pin_pwm, uint8_t pin_direction);
 
     void setTarget(int16_t value);
 
@@ -25,10 +25,9 @@ private:
     
     // Set motor value in range [-1000, 1000] for given index (0-4)
     static void setDCMotorValue(uint8_t index, int16_t value);
-    // Set port and pin for given motor index (0-4), port: 1=A, 2=B, 3=C, 4=D, pin: 0-7
-    static void setDCMotorPortPin(uint8_t index, uint8_t port, uint8_t pin);
+    
     // Overloaded version: set port and pin using single byte (port in high nibble, pin in low nibble)
-    static void setDCMotorPortPin(uint8_t index, uint8_t port_pin);
+    static void setDCMotorPortPin(uint8_t index, uint8_t port_pwm_pin, uint8_t port_dir_pin );
 
     // get index of first free motor
     static int8_t getDCFreeMotorIndex();
@@ -42,13 +41,21 @@ private:
     //used to copy dc_motors_ and use these values, for next time cycle. 
     volatile static uint16_t dc_motors_buffer_[5];
     //port and pin for each motor (0=disabled, else port in high nibble, pin in low nibble)
-    volatile static uint8_t dc_port_pin_[5];
+    volatile static uint8_t dc_port_pwm_pin_[5];
+
+    /// @brief pins where direction is set
+    volatile static uint8_t dc_port_dir_pin_[5];
 
     friend void OnTimer1OwerflowDC();
     friend void OnTimer1CompareMatchDC();
     friend bool isSmaller(uint8_t index1, uint8_t index2);
 
-    MotorProps props;
+    //MotorProps props;
+    uint8_t port_pwm_index_;
+    uint8_t port_dir_index;
+    //which index from static arrays belongs to this instance
+    uint8_t motor_index_;
+    uint8_t error_code_;
 };
 
 #endif // DC_CONTROL_H

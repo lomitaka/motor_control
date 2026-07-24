@@ -41,7 +41,7 @@ int main() {
     }
 
     
-    DCControl dc1(9);
+    DCControl dc1(9,1);
     dc1.setTarget(500);
     
     std::cout << "Motors initialized:" << std::endl;

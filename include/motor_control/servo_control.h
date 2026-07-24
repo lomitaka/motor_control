@@ -1,7 +1,14 @@
 #ifndef SERVO_CONTROL_H
 #define SERVO_CONTROL_H
 
-#include <avr/io.h>
+#ifdef SIMULATION_MODE
+    #include "simulator/avr_mock.h"
+#else
+    #include <avr/io.h>
+    #include <avr/interrupt.h>
+#endif
+
+//#include <avr/io.h>
 #include <stddef.h>
 #include <stdint.h>
 #include "motor.h"
@@ -60,7 +67,9 @@ public:
     friend void OnTimer1CompareMatchServo();
     friend void OnTimer1OwerflowServo();
 
-    MotorProps props;
+    //MotorProps props;
+    uint8_t port_pin_;
+    uint8_t motor_index;
 };
 
 #endif // SERVO_CONTROL_H

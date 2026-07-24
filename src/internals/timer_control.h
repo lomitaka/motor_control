@@ -1,7 +1,12 @@
 #ifndef TIMER_CONTROL_H
 #define TIMER_CONTROL_H
 
-#include <avr/io.h>
+#ifdef SIMULATION_MODE
+    #include "simulator/avr_mock.h"
+#else
+    #include <avr/io.h>
+#endif
+//#include <avr/io.h>
 #include <stddef.h>
 #include <stdint.h>
 

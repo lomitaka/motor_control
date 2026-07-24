@@ -1,8 +1,16 @@
 #include "internals/timer_control.h"
-#include <avr/io.h>
-#include <avr/interrupt.h>
-#define __DELAY_BACKWARD_COMPATIBLE__
-#include "util/delay.h"
+
+#ifdef SIMULATION_MODE
+    #include "simulator/avr_mock.h"
+#else
+    #include <avr/io.h>
+    #include <avr/interrupt.h>
+    #define __DELAY_BACKWARD_COMPATIBLE__
+    #include "util/delay.h"
+#endif
+//#include <avr/io.h>
+//#include <avr/interrupt.h>
+
 #include "motor_control/servo_control.h"
 #include "internals/arduino.h"
 
@@ -20,11 +28,11 @@ ServoControl::ServoControl(uint8_t pin) {
     if (!TimerControl::isInitialized()){
         TimerControl::setup_Timers();
     }
-    props.port_pin_ = pin;
-    props.motor_index = getServFreeMotorIndex(); //register motor
+    port_pin_ = pin;
+    motor_index = getServFreeMotorIndex(); //register motor
 
-    if (props.motor_index < 0 ) return; //error, no free motor
-    setServMotorPortPin(props.motor_index, props.port_pin_); //port B, pin 0
+    if (motor_index < 0 ) return; //error, no free motor
+    setServMotorPortPin(motor_index, port_pin_); //port B, pin 0
 }
 
 ServoControl::~ServoControl() {
@@ -36,12 +44,12 @@ ServoControl::~ServoControl() {
 
 // Set target: for DC/stepper -> speed (-1000..1000), for servo -> angle (radians) depending on implementation
 void ServoControl::setTarget(int16_t value){
-    setServMotorValue(props.motor_index, value);
+    setServMotorValue(motor_index, value);
 }
 
 // Immediately set output (no ramp) — useful for calibration/emergency
 void ServoControl::setImmediate(int16_t value){
-    setServMotorValue(props.motor_index, value);
+    setServMotorValue(motor_index, value);
 }
 
 // Configure ramping: type and time to reach target (milliseconds)
@@ -72,6 +80,8 @@ void ServoControl::freeServIndex(uint8_t index){
 
 void ServoControl::setServMotorValue(uint8_t index, int16_t value)
 {
+    //why 2000 and not 1000? probably because of different servo motors and ability
+    // to go over edge, and not be limited, if there is some wierd servo implementation
     if (index < 5){
         if (value > 2000) value = 2000;
         if (value < -2000) value = -2000;

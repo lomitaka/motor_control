@@ -158,7 +158,7 @@ void test_dc_basic_speeds() {
     printTestHeader("DC Motor - Basic Speed Control");
     std::cout << "Testing standard speed settings: 0%, 25%, 50%, 75%, 100%" << std::endl;
     
-    DCControl dc(12);  // Pin 12 (PORTB.4)
+    DCControl dc(12,1);  // Pin 12 (PORTB.4)
     
     std::cout << "\n1. Stop (0)" << std::endl;
     dc.setImmediate(0);
@@ -189,7 +189,7 @@ void test_dc_direction_changes() {
     printTestHeader("DC Motor - Direction Control");
     std::cout << "Testing forward/reverse operation" << std::endl;
     
-    DCControl dc(13);  // Pin 13 (PORTB.5)
+    DCControl dc(13,1);  // Pin 13 (PORTB.5)
     
     std::cout << "\n1. Forward at 60% (+600)" << std::endl;
     dc.setImmediate(600);
@@ -220,7 +220,7 @@ void test_dc_gradual_acceleration() {
     printTestHeader("DC Motor - Gradual Acceleration");
     std::cout << "Testing smooth speed ramp-up (soft start)" << std::endl;
     
-    DCControl dc(12);  // Pin 12 (PORTB.4)
+    DCControl dc(12,1);  // Pin 12 (PORTB.4)
     
     dc.setImmediate(0);
     simulateFor(50, "Starting from stop");
@@ -239,7 +239,7 @@ void test_dc_gradual_deceleration() {
     printTestHeader("DC Motor - Gradual Deceleration");
     std::cout << "Testing smooth braking (soft stop)" << std::endl;
     
-    DCControl dc(13);  // Pin 13 (PORTB.5)
+    DCControl dc(13,1);  // Pin 13 (PORTB.5)
     
     std::cout << "\nStarting at full speed" << std::endl;
     dc.setImmediate(1000);
@@ -260,7 +260,7 @@ void test_dc_stress_sudden_reverse() {
     std::cout << "WARNING: This is NOT recommended for real hardware!" << std::endl;
     std::cout << "Testing immediate direction reversal under load" << std::endl;
     
-    DCControl dc(12);  // Pin 12 (PORTB.4)
+    DCControl dc(12,1);  // Pin 12 (PORTB.4)
     
     std::cout << "\n1. Full speed forward (+1000)" << std::endl;
     dc.setImmediate(1000);
@@ -283,7 +283,7 @@ void test_dc_pwm_duty_cycle_analysis() {
     printTestHeader("DC Motor - PWM Duty Cycle Analysis");
     std::cout << "Testing various speeds to analyze PWM characteristics" << std::endl;
     
-    DCControl dc(9);  // Pin 9 (PORTB.1)
+    DCControl dc(9,1);  // Pin 9 (PORTB.1)
     
     int16_t test_speeds[] = {100, 250, 500, 750, 900, 1000};
     
@@ -306,7 +306,7 @@ void test_combined_servo_and_dc() {
     std::cout << "Real-world scenario: Robotic arm with servo and drive motor" << std::endl;
     
     ServoControl servo(9);   // Pin 9 - Servo for arm position
-    DCControl dc(12);        // Pin 12 - DC motor for drive
+    DCControl dc(12,1);        // Pin 12 - DC motor for drive
     
     std::cout << "\nScenario: Robot approaches object, positions arm, grabs it" << std::endl;
     
@@ -345,8 +345,8 @@ void test_multiple_motors_coordination() {
     
     ServoControl servo1(9);   // Pin 9
     ServoControl servo2(10);  // Pin 10
-    DCControl dc1(12);        // Pin 12
-    DCControl dc2(13);        // Pin 13
+    DCControl dc1(12,1);        // Pin 12
+    DCControl dc2(13,1);        // Pin 13
     
     std::cout << "\n1. Initialize all motors" << std::endl;
     servo1.setImmediate(0);

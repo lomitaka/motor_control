@@ -1,8 +1,17 @@
 #include "internals/timer_control.h"
-#include <avr/io.h>
-#include <avr/interrupt.h>
+
+#ifdef SIMULATION_MODE
+    #include "simulator/avr_mock.h"
+#else
+    #include <avr/io.h>
+    #include <avr/interrupt.h>
+    #include "util/delay.h"
+#endif
+
+//#include <avr/io.h>
+//#include <avr/interrupt.h>
 #define __DELAY_BACKWARD_COMPATIBLE__
-#include "util/delay.h"
+
 #include "stddef.h"
 
 //singleton implementation of timer control (to controll timer1)

@@ -1,8 +1,19 @@
 
-#include <avr/io.h>
-#include <avr/interrupt.h>
-#define __DELAY_BACKWARD_COMPATIBLE__
-#include "util/delay.h"
+
+#ifdef SIMULATION_MODE
+    #include "../simulator/avr_mock.h"
+#else
+    #include <avr/io.h>
+    #include <avr/interrupt.h>
+    #define __DELAY_BACKWARD_COMPATIBLE__
+    #include "util/delay.h"
+#endif
+
+//#include <avr/io.h>
+//#include <avr/interrupt.h>
+//#define __DELAY_BACKWARD_COMPATIBLE__
+//#include "util/delay.h"
+
 #include "stddef.h"
 #include "internals/timer_control.h"
 #include "motor_control/dc_control.h"
@@ -26,59 +37,63 @@
 
 */
 
-
+//currently used slot number (shows first empty index, max is 5 (by design))
 volatile uint8_t DCControl::dc_motor_count_ = 0;
+//current motor speed from -1000 to 1000
 volatile uint16_t DCControl::dc_motors_[5] = {0, 0, 0, 0, 0};
-volatile uint8_t DCControl::dc_port_pin_[5] = {0, 0, 0, 0, 0};
+//snapshot of ds_motors_ used for controll motor in a predictible way 
+//this is updated once per owerflow
 volatile uint16_t DCControl::dc_motors_buffer_[5] = {0, 0, 0, 0, 0};
 
-DCControl::DCControl(uint8_t pin){
-    init(pin);
+/// @brief pins where pwm signal is generated
+volatile uint8_t DCControl::dc_port_pwm_pin_[5] = {0, 0, 0, 0, 0};
+
+/// @brief pins where direction is set
+volatile uint8_t DCControl::dc_port_dir_pin_[5] = {0, 0, 0, 0, 0};
+
+
+DCControl::DCControl(uint8_t pin_pwm,uint8_t pin_direction){
+    init(pin_pwm,pin_direction);
 }
 
-uint8_t DCControl::init(uint8_t pin) {
+uint8_t DCControl::init(uint8_t pin_pwm, uint8_t pin_direction) {
 
-    props.port_pin_ = pin;
-    if (props.port_pin_ == 255) {
-        props.error_code_ = ErrorCodes::ERROR_INVALID_PIN;
-        return props.error_code_;
-    }
-    props.motor_index = getDCFreeMotorIndex(); //register motor
+    port_pwm_index_ = pin_pwm;
+    port_dir_index = pin_direction;
+    motor_index_ = getDCFreeMotorIndex(); //register motor
 
-    if (props.motor_index < 0 ) {
-        props.error_code_ = ErrorCodes::ERROR_NO_FREE_MOTOR;
-        return props.error_code_;
+    if (motor_index_ < 0 ) {
+        error_code_ = ErrorCodes::ERROR_NO_FREE_MOTOR;
+        return error_code_;
     }; //error, no free motor
-   setDCMotorPortPin(props.motor_index, props.port_pin_); //port B, pin 0
+   setDCMotorPortPin(motor_index_, port_pwm_index_,port_dir_index); //port B, pin 0
     
     return ErrorCodes::NO_ERROR;
 }
 
 void DCControl::setTarget(int16_t value){
-    if (value < -1000 || value > 1000){
-        props.error_code_ = ErrorCodes::ERROR_INVALID_VALUE;
-        return;
-    }
-    setDCMotorValue(props.motor_index, value);
+    if (value > 1000) value = 1000;
+    if (value < -1000) value = -1000;
+    
+    setDCMotorValue(motor_index_, value);
 }
 
 void DCControl::setImmediate(int16_t value){
-    if (value < -1000 || value > 1000){
-        props.error_code_ = ErrorCodes::ERROR_INVALID_VALUE;
-        return;
-    }
-    setDCMotorValue(props.motor_index, value);
+    if (value > 1000) value = 1000;
+    if (value < -1000) value = -1000;
+
+    setDCMotorValue(motor_index_, value);
 }
 
 uint8_t DCControl::getLastError() {
-    return props.error_code_;
+    return error_code_;
 };
 
 
 
 int8_t DCControl::getDCFreeMotorIndex(){
     for (int8_t i = 0; i < 5; i++) {
-        if (dc_port_pin_[i] == 0) {
+        if (dc_port_pwm_pin_[i] == 0) {
             return i;
         }
     }
@@ -86,7 +101,7 @@ int8_t DCControl::getDCFreeMotorIndex(){
 }
 
 void DCControl::freeDCIndex(uint8_t index){
-    dc_port_pin_[index] = 0;
+    dc_port_pwm_pin_[index] = 0;
     dc_motors_[index] = 0;
     
 }
@@ -102,18 +117,17 @@ void DCControl::setDCMotorValue(uint8_t index, int16_t value)
 
     // Set port and pin for given motor index (0-4), port: 1=A, 2=B, 3=C, 4=D, pin: 0-7
     //set port to 0 to disable motor
-void DCControl::setDCMotorPortPin(uint8_t index, uint8_t port, uint8_t pin){
-    if (index < 5 && port <= 4 && pin <= 7){
-        dc_port_pin_[index] = (port << 4) | (pin & 0x0F);
+/*void DCControl::setDCMotorPortPin(uint8_t index, uint8_t port, uint8_t pin_pwm, uint8_t pin_dir){
+    if (index < 5 && port <= 4 && pin_pwm <= 7){
+        dc_port_pwm_pin_[index] = (port << 4) | (pin_pwm & 0x0F);
     }
-}
+}*/
 
-    // Set port and pin for given motor index (0-4), port: 1=A, 2=B, 3=C, 4=D, pin: 0-7
+    // Set port and pin for given motor index (0-4), port_pwm_pin, port_dir_pin are arduno pins.    
     //set port to 0 to disable motor
-void DCControl::setDCMotorPortPin(uint8_t index, uint8_t port_pin ){
-    if (index < 5 && port_pin <= 0x4F){
-        dc_port_pin_[index] = port_pin;
-    }
+void DCControl::setDCMotorPortPin(uint8_t index, uint8_t port_pwm_pin, uint8_t port_dir_pin ){
+        dc_port_pwm_pin_[index] = port_pwm_pin;
+        dc_port_dir_pin_[index] = port_dir_pin;
 }
 
 /* 
@@ -124,8 +138,8 @@ void OnTimer1OwerflowDC(){
     
     //copy each value to buffer, that is going to be applied for computations. 
     for (uint8_t i = 0;i < DCControl::dc_motor_count_;i++){
-        if (DCControl::dc_port_pin_[i] > 0){
-            digitalWrite(DCControl::dc_port_pin_[i],true);
+        if (DCControl::dc_port_pwm_pin_[i] > 0){
+            digitalWrite(DCControl::dc_port_pwm_pin_[i],true);
             //update buffer
             DCControl::dc_motors_buffer_[i] = DCControl::dc_motors_[i];
         }
@@ -166,7 +180,7 @@ void OnTimer1CompareMatchDC(){
     //
     while (true){
         //set pin to low
-        digitalWrite(DCControl::dc_port_pin_[TimerControl::curr_dc_index],false);
+        digitalWrite(DCControl::dc_port_pwm_pin_[TimerControl::curr_dc_index],false);
         //search for next motor to bring down
         int8_t nextIndex = -1;
         for (uint8_t i = 0; i < DCControl::dc_motor_count_;i++){

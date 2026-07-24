@@ -73,6 +73,7 @@ void readLine(char *buffer, uint8_t buffer_size) {
 }
 
 ServoControl leftMotor(WH_LEFT);
+ServoControl rightMotor(WH_RIGHT);
 
 // Funkce pro analýzu příkazu
 void processCommand(const char *command) {
@@ -102,6 +103,7 @@ void processCommand(const char *command) {
 	if (value >= PARAM_MIN && value <= PARAM_MAX) {
 		// Nastavení parametru
 		leftMotor.setTarget(value);
+		rightMotor.setTarget(value);
 		USART_WRITE_S("A set to"); USART_WRITE_FLOAT(value); USART_WRITE_S("\r\n");
 		
 	} else {

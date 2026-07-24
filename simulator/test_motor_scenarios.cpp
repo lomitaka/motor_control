@@ -258,8 +258,8 @@ void test_mixed_motors(AVRTimerSimulator& simulator) {
     // Vytvoření motorů
     ServoControl servo1(9);
     ServoControl servo2(10);
-    DCControl dc1(5);
-    DCControl dc2(6);
+    DCControl dc1(5,1);
+    DCControl dc2(6,1);
     
     std::cout << "Fáze 1: Start - serva na 0°, DC na 30%" << std::endl;
     servo1.setTarget(0);
@@ -305,7 +305,7 @@ void test_stress_test(AVRTimerSimulator& simulator) {
     simulator.registerOverflow_ISR(OnTimer1OwerflowServo);
     
     ServoControl servo(9);
-    DCControl motor(5);
+    DCControl motor(5,1);
     
     // 100 změn po 50ms = 5 sekund
     for (int i = 0; i < 100; i++) {

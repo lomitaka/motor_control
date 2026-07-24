@@ -42,7 +42,7 @@ public:
 
 
 
-class MotorProps {
+/*class MotorProps {
 public:
     int16_t motor_index = -1;
     uint8_t port_pin_ =0;
@@ -51,4 +51,4 @@ public:
     int16_t currentOutput_; // current output value, ramped
     int16_t targetOutput_;  // target output value
     uint8_t error_code_ = 0;
-};
+};*/
