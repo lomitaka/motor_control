@@ -6,8 +6,8 @@
                 "${workspaceFolder}/**",
                 "${workspaceFolder}/headers/**",
                 "/usr/lib/avr/include/**",
-                "/usr/lib/gcc/avr/5.4.0/include/**",
-                "/usr/lib/gcc/avr/5.4.0/include-fixed/**"
+                "/usr/lib/gcc/avr/7.3.0/include/**",
+                "/usr/lib/gcc/avr/7.3.0/include-fixed/**"
             ],
             "defines": [
                 "__AVR__",

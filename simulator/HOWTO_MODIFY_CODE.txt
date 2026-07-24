@@ -1,0 +1,36 @@
+// Příklad úpravy timer_control.cpp pro podporu simulace
+// Přidejte tento řádek na začátek souboru:
+
+#ifdef SIMULATION_MODE
+    #include "avr_mock.h"
+#else
+    #include <avr/io.h>
+    #include <avr/interrupt.h>
+#endif
+
+// Zbytek kódu zůstává BEZE ZMĚNY!
+
+// Timer1_Init, setPinHigh, setPinLow atd. - vše funguje stejně
+// protože používají TCNT1, OCR1A atd., které jsou teď simulované
+
+// ISR makra v simulačním režimu nefungují, takže je potřeba exportovat
+// callback funkce. Přidejte na konec souboru:
+
+#ifdef SIMULATION_MODE
+// Pro simulaci exportujte ISR funkce jako běžné funkce
+void ISR_TIMER1_COMPA() {
+    OnTimer1CompareMatchServo();
+}
+
+void ISR_TIMER1_OVF() {
+    OnTimer1OwerflowServo();
+}
+#endif
+
+/* NEBO jednodušeji - pokud máte OnTimer1CompareMatchServo a OnTimer1OwerflowServo
+   jako samostatné funkce (což už máte!), nemusíte nic dělat.
+   Jen je zaregistrujte v test_simulation.cpp:
+   
+   simulator.registerCompareMatchA_ISR(OnTimer1CompareMatchServo);
+   simulator.registerOverflow_ISR(OnTimer1OwerflowServo);
+*/
