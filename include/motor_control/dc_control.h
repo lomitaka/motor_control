@@ -34,8 +34,15 @@ private:
     //detaches motor from given index
     void freeDCIndex(uint8_t index);
 
-
+    
+    //index of motor that is going to be pulled down in the next timer compare match.
+    volatile static uint8_t dc_current_index_;
+    //number of motors, used by this class
     volatile static uint8_t dc_motor_count_;
+
+    //order in which motors should go down. (indexes points to dc_motors_buffer array)
+    volatile static uint8_t dc_motors_off_order[5];
+
     //motor values currently set (-1000 to 1000)
     volatile static uint16_t dc_motors_[5];
     //used to copy dc_motors_ and use these values, for next time cycle. 
@@ -52,7 +59,7 @@ private:
 
     //MotorProps props;
     uint8_t port_pwm_index_;
-    uint8_t port_dir_index;
+    uint8_t port_dir_index_;
     //which index from static arrays belongs to this instance
     uint8_t motor_index_;
     uint8_t error_code_;

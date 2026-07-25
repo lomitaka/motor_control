@@ -27,7 +27,7 @@ int main() {
     // Inicializace Timer1
     TimerControl::setup_Timers();
     
-    if (false){
+    if (true){
 
         // Vytvoření servo motorů
         ServoControl servo1(9);   // Pin 9 (PORTB.1)
@@ -41,8 +41,8 @@ int main() {
     }
 
     
-    DCControl dc1(9,1);
-    dc1.setTarget(500);
+    //DCControl dc1(9,1);
+    //dc1.setTarget(500);
     
     std::cout << "Motors initialized:" << std::endl;
     std::cout << "  Servo 1 (pin 9):  position = 0" << std::endl;

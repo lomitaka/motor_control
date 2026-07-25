@@ -36,7 +36,7 @@ public:
   
 //private:
     volatile size_t timeSinceStart_;
-    volatile static uint8_t curr_motor_i;
+
 
     //dc motors:
     volatile static uint8_t curr_dc_index;

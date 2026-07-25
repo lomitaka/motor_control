@@ -72,9 +72,26 @@ int8_t ServoControl::getServFreeMotorIndex(){
 }
 
 void ServoControl::freeServIndex(uint8_t index){
-    serv_pin_[index] = 0;
-    serv_motors_[index] = 0;
-    
+    /* goes over indexes, finds last non empty index, and clears it. 
+    if no index found, then just clears item. */
+    int8_t non_free_index = -1;
+    for (int8_t i = serv_motor_count_; i <= 0 ; i--){
+        if (index == i){continue;}
+        if (serv_pin_[i] != 0){
+            non_free_index =i;
+        }
+    }
+    //there is another index, that is not used
+    if (non_free_index >= 0){
+        serv_pin_[index] = serv_pin_[non_free_index];
+        serv_motors_[index] = serv_motors_[non_free_index];
+    }else {
+        serv_pin_[index] = 0;
+        serv_motors_[index] = 0;
+    }
+    if (serv_motor_count_ > 0){
+        serv_motor_count_--;
+    }
 }
 
 
@@ -85,7 +102,9 @@ void ServoControl::setServMotorValue(uint8_t index, int16_t value)
     if (index < 5){
         if (value > 2000) value = 2000;
         if (value < -2000) value = -2000;
+        cli();
         serv_motors_[index] = value;
+        sei();
     }
 }
 
@@ -131,9 +150,9 @@ inline void PrintIfServPortPinIsOne(uint16_t v) {
 void OnTimer1CompareMatchServo(){
     // store current motor index as a single char in dbg and terminate the string
 
-    if (ServoControl::serv_pin_[TimerControl::curr_motor_i] > 0){
+    if (ServoControl::serv_pin_[ServoControl::curr_motor_i] > 0){
         //TimerControl::setPinLow(ServoControl::serv_pin_[TimerControl::curr_motor_i]);
-        digitalWrite(ServoControl::serv_pin_[TimerControl::curr_motor_i],false);
+        digitalWrite(ServoControl::serv_pin_[ServoControl::curr_motor_i],false);
     }
 }
 
@@ -144,10 +163,11 @@ void OnTimer1CompareMatchServo(){
 void OnTimer1OwerflowServo(){
     //serv_dbg[0] = 'a';
    // DDRB |= (1 << (3)); PORTB |= (1 << (3));
-    TimerControl::curr_motor_i = (TimerControl::curr_motor_i +1) % 5;
-    if (ServoControl::serv_pin_[TimerControl::curr_motor_i] > 0){
+    ServoControl::curr_motor_i = (ServoControl::curr_motor_i +1) % 5;
+    if (ServoControl::serv_pin_[ServoControl::curr_motor_i] > 0){
         //TimerControl::setPinHigh(ServoControl::serv_pin_[TimerControl::curr_motor_i]);
-        digitalWrite(ServoControl::serv_pin_[TimerControl::curr_motor_i],true);
-        OCR1A = (uint16_t)((ServoControl::serv_motors_[TimerControl::curr_motor_i]+1000)*8+16000);
+        digitalWrite(ServoControl::serv_pin_[ServoControl::curr_motor_i],true);
+        //maps value
+        OCR1A = (uint16_t)((ServoControl::serv_motors_[ServoControl::curr_motor_i]+1000)*8+16000);
     }
 }
