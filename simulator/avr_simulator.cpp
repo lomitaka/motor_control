@@ -260,10 +260,16 @@ void AVRTimerSimulator::simulate(double duration_seconds, double timestep_us) {
     
     uint64_t nextReport = totalCycles / 10;  // Report every 10%
     uint64_t reportCounter = 0;
-    
+    int test0 = 0;
     for (uint64_t i = 0; i < totalCycles; i += cycles_per_step) {
+        
         for (uint64_t j = 0; j < cycles_per_step; j++) {
             tick();
+            
+            test0 = ((test0 +1) % 1000);
+            if (test0 == 0){
+                logFile_ << "  (TCNT1=" << AVRSim::TCNT1 << ")" << std::endl;
+            }
         }
         
         // Periodické logování zatížení motorů

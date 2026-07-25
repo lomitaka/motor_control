@@ -18,6 +18,7 @@
 #include "internals/timer_control.h"
 #include "motor_control/dc_control.h"
 #include "internals/arduino.h"
+#include "internals/fces.h"
 
 
 
@@ -37,8 +38,20 @@
 
 */
 
+// Minimum time from current timer position before next compare event.
+// Prevents missing compare match while inside ISR.
+constexpr uint16_t TIMER_GUARD_TICKS = 100;
+
+
+#define MAX_MOTOR_CNT 5
 //currently used slot number (shows first empty index, max is 5 (by design))
 volatile uint8_t DCControl::dc_motor_count_ = 0;
+
+//
+volatile uint8_t DCControl::dc_current_index_ = 0;
+
+volatile uint8_t DCControl::dc_motors_off_order[5] = {0, 0, 0, 0, 0};
+
 //current motor speed from -1000 to 1000
 volatile uint16_t DCControl::dc_motors_[5] = {0, 0, 0, 0, 0};
 //snapshot of ds_motors_ used for controll motor in a predictible way 
@@ -59,14 +72,14 @@ DCControl::DCControl(uint8_t pin_pwm,uint8_t pin_direction){
 uint8_t DCControl::init(uint8_t pin_pwm, uint8_t pin_direction) {
 
     port_pwm_index_ = pin_pwm;
-    port_dir_index = pin_direction;
+    port_dir_index_ = pin_direction;
     motor_index_ = getDCFreeMotorIndex(); //register motor
 
     if (motor_index_ < 0 ) {
         error_code_ = ErrorCodes::ERROR_NO_FREE_MOTOR;
         return error_code_;
     }; //error, no free motor
-   setDCMotorPortPin(motor_index_, port_pwm_index_,port_dir_index); //port B, pin 0
+   setDCMotorPortPin(motor_index_, port_pwm_index_,port_dir_index_); //port B, pin 0
     
     return ErrorCodes::NO_ERROR;
 }
@@ -101,8 +114,29 @@ int8_t DCControl::getDCFreeMotorIndex(){
 }
 
 void DCControl::freeDCIndex(uint8_t index){
-    dc_port_pwm_pin_[index] = 0;
-    dc_motors_[index] = 0;
+    /* goes over indexes, finds last non empty index, and clears it. 
+    if no index found, then just clears item. */
+    int8_t non_free_index = -1;
+    for (int8_t i = dc_motor_count_; i <= 0 ; i--){
+        if (index == i){continue;}
+        if (dc_port_pwm_pin_[i] != 0){
+            non_free_index =i;
+        }
+    }
+    //there is another index, that is not used
+    if (non_free_index >= 0){
+        dc_port_pwm_pin_[index] = dc_port_pwm_pin_[non_free_index];
+        dc_port_dir_pin_[index] = dc_port_dir_pin_[non_free_index];
+        dc_motors_[index] = dc_motors_[non_free_index];
+    }else {
+        dc_port_pwm_pin_[index] = 0;
+        dc_port_dir_pin_[index] = 0;
+        dc_motors_[index] = 0;
+    }
+    if (dc_motor_count_ > 0){
+        dc_motor_count_--;
+    }
+
     
 }
 
@@ -111,7 +145,11 @@ void DCControl::setDCMotorValue(uint8_t index, int16_t value)
     if (index < 5){
         if (value > 1000) value = 1000;
         if (value < -1000) value = -1000;
+        // dc_motors_ is 2 byte value, and there should be no way that this value will be updated only partially.
+        cli();
         dc_motors_[index] = value;
+
+        sei();
     }
 }
 
@@ -126,8 +164,10 @@ void DCControl::setDCMotorValue(uint8_t index, int16_t value)
     // Set port and pin for given motor index (0-4), port_pwm_pin, port_dir_pin are arduno pins.    
     //set port to 0 to disable motor
 void DCControl::setDCMotorPortPin(uint8_t index, uint8_t port_pwm_pin, uint8_t port_dir_pin ){
+    cli();    
         dc_port_pwm_pin_[index] = port_pwm_pin;
         dc_port_dir_pin_[index] = port_dir_pin;
+    sei();
 }
 
 /* 
@@ -135,7 +175,7 @@ void DCControl::setDCMotorPortPin(uint8_t index, uint8_t port_pwm_pin, uint8_t p
     -sets Overflow to minimum of the values
 */
 void OnTimer1OwerflowDC(){
-    
+   
     //copy each value to buffer, that is going to be applied for computations. 
     for (uint8_t i = 0;i < DCControl::dc_motor_count_;i++){
         if (DCControl::dc_port_pwm_pin_[i] > 0){
@@ -143,20 +183,35 @@ void OnTimer1OwerflowDC(){
             //update buffer
             DCControl::dc_motors_buffer_[i] = DCControl::dc_motors_[i];
         }
-    }
+    } 
 
-    //finds minimal value of the 
-    uint8_t minInd = 0;
-    uint16_t minVal = 65535;
-    for (uint8_t i = 0; i < DCControl::dc_motor_count_;i++){
-        if (minVal > DCControl::dc_motors_buffer_[i]){
-            minInd = i;
-            minVal = DCControl::dc_motors_buffer_[i];
+
+    bool mask[MAX_MOTOR_CNT] = {0,0,0,0,0};
+    //for amount of motors, extract min.
+    
+    for (uint8_t i = 0;i < MAX_MOTOR_CNT;i++){
+        int8_t min_index = -1; 
+
+        for (int8_t j = 0;j < MAX_MOTOR_CNT;j++){
+            if ((DCControl::dc_motors_buffer_[min_index] > DCControl::dc_motors_buffer_[j]) && !mask[j]){
+                min_index = (int8_t)j;
+            }
+        }
+        if (min_index >= 0){
+            mask[min_index] = true;
+            DCControl::dc_motors_off_order[i] = min_index;
         }
     }
-    //TODO compute right scaling
-    OCR1B = (uint16_t)(DCControl::dc_motors_buffer_[minInd]*1600+24000)+112; 
-    TimerControl::curr_dc_index = minInd;
+
+
+    DCControl::dc_current_index_ = 0;
+    if (DCControl::dc_port_dir_pin_[DCControl::dc_motors_off_order[0]] > 0){
+        uint16_t minval =  DCControl::dc_motors_buffer_[DCControl::dc_motors_off_order[0]];
+        //maps 0-1000 to 0-64000
+        OCR1B = mabs(minval)*64; 
+    }
+   
+    DCControl::dc_current_index_ = 1;
 }
 
 bool isSmaller(uint8_t index1, uint8_t index2){
@@ -173,42 +228,30 @@ bool isSmaller(uint8_t index1, uint8_t index2){
 
 /* 
     check current motor value, and set 
+    TODO redo on compare match. with index.
 
 */
 void OnTimer1CompareMatchDC(){
     
-    //
-    while (true){
-        //set pin to low
-        digitalWrite(DCControl::dc_port_pwm_pin_[TimerControl::curr_dc_index],false);
-        //search for next motor to bring down
-        int8_t nextIndex = -1;
-        for (uint8_t i = 0; i < DCControl::dc_motor_count_;i++){
-            
-            //skips values, that were 
-            if (DCControl::dc_motors_buffer_[i] < DCControl::dc_motors_buffer_[TimerControl::curr_dc_index] ||
-                 i == TimerControl::curr_dc_index){ continue; }
-            if (isSmaller(nextIndex, i)){
-                nextIndex = i;
-            }
-        }
-
-        
-        if (nextIndex > 0){
-            TimerControl::curr_dc_index = nextIndex;
-            OCR1B = (uint16_t)(DCControl::dc_motors_[TimerControl::curr_dc_index]*1600+24000)+112; 
-
-            //in case value already passed or is about to pass. (continue by next iteration)
-            uint16_t timer1 = TCNT1;
-            //1000 - TODO check if this value is reasonable (optionally to )
-            if (OCR1B + 1000 > timer1 ){
-                break;
-            }
-        }
+    //sets all ouptus pin  that are smaller than current_dc_index to zero (to avoid situation where 
+    // multiple pwm_pins have same value, so next tick may miss.   )
+    for (uint8_t i = 0 ; i < TimerControl::curr_dc_index; i++){
+        digitalWrite(DCControl::dc_port_pwm_pin_[DCControl::dc_motors_off_order[i]],false);
     }
     
+    uint16_t curr_value =  DCControl::dc_motors_buffer_[DCControl::dc_motors_off_order[0]];
     
-    
+    //sets new value for futrue
+    //maps 0-1000 to 0-64000
+    TimerControl::curr_dc_index++;     
+    OCR1B = max(TCNT1 + 100, mabs(curr_value)*64); 
+
+    int16_t diff = (int16_t)(curr_value/4 - TCNT1/4);
+    if (diff > TIMER_GUARD_TICKS/4){
+        OCR1B = curr_value;
+    }else {
+        OCR1B = TCNT1 + TIMER_GUARD_TICKS;
+    }
     
 }
 
