@@ -28,6 +28,7 @@ namespace AVRSim {
     const uint8_t CS10 = 0;
     const uint8_t CS11 = 1;
     const uint8_t CS12 = 2;
+    const uint8_t WGM12 = 3;
     const uint8_t OCIE1A = 1;
     const uint8_t OCIE1B = 2;
     const uint8_t TOIE1 = 0;
@@ -119,23 +120,35 @@ void AVRTimerSimulator::tick() {
     if (prescalerCounter_ >= prescaler) {
         prescalerCounter_ = 0;
         
-        // Uložení předchozí hodnoty TCNT1 pro detekci overflow
-        uint16_t prevTCNT1 = AVRSim::TCNT1;
+        // Detekce CTC režimu (WGM12 bit v TCCR1B)
+        bool isCTCMode = (AVRSim::TCCR1B & (1 << AVRSim::WGM12)) != 0;
         
         // Inkrementace Timer1
         AVRSim::TCNT1++;
         
-        // Detekce overflow (65535 -> 0)
-        if (prevTCNT1 == 0xFFFF && AVRSim::TCNT1 == 0) {
+        // CTC režim: Clear on Compare Match A
+        if (isCTCMode && AVRSim::TCNT1 == AVRSim::OCR1A) {
+            // Compare Match A - nastav flag
+            AVRSim::TIFR1 |= (1 << AVRSim::OCF1A);
+            
+            // Nastav TOV1 (overflow na TOP hodnotu)
+            AVRSim::TIFR1 |= (1 << AVRSim::TOV1);
+            
+            // RESET časovače na 0 (CTC režim)
+            AVRSim::TCNT1 = 0;
+        }
+        // Normální režim: Overflow na 0xFFFF
+        else if (!isCTCMode && AVRSim::TCNT1 == 0) {
+            // Overflow z 0xFFFF -> 0
             AVRSim::TIFR1 |= (1 << AVRSim::TOV1);
         }
         
-        // Detekce Compare Match A
-        if (AVRSim::TCNT1 == AVRSim::OCR1A) {
+        // Detekce Compare Match A (pokud už není v CTC resetovaný)
+        if (!isCTCMode && AVRSim::TCNT1 == AVRSim::OCR1A) {
             AVRSim::TIFR1 |= (1 << AVRSim::OCF1A);
         }
         
-        // Detekce Compare Match B
+        // Detekce Compare Match B (funguje v obou režimech)
         if (AVRSim::TCNT1 == AVRSim::OCR1B) {
             AVRSim::TIFR1 |= (1 << AVRSim::OCF1B);
         }
@@ -188,7 +201,10 @@ void AVRTimerSimulator::checkInterrupts() {
         (AVRSim::TIMSK1 & (1 << AVRSim::OCIE1A))) {
         AVRSim::TIFR1 &= ~(1 << AVRSim::OCF1A);  // Clear flag
         if (compareMatchA_ISR_) {
-            compareMatchA_ISR_();
+            //compareMatchA_ISR_();
+            overflow_ISR_();
+            //CTC mode, when timer is cleared on OCR1A match
+            AVRSim::TCNT1 = 0;
         }
     }
     
@@ -266,14 +282,15 @@ void AVRTimerSimulator::simulate(double duration_seconds, double timestep_us) {
         for (uint64_t j = 0; j < cycles_per_step; j++) {
             tick();
             
-            test0 = ((test0 +1) % 1000);
+            /*test0 = ((test0 +1) % 1000);
             if (test0 == 0){
                 logFile_ << "  (TCNT1=" << AVRSim::TCNT1 << ")" << std::endl;
-            }
+            }*/
         }
         
         // Periodické logování zatížení motorů
-        logMotorLoads();
+        //logPinChange();
+        //logMotorLoads();
         
         // Progress report
         if (cycleCount_ >= nextReport * (reportCounter + 1)) {

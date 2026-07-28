@@ -18,12 +18,12 @@
 //TimerControl timer_control;
 
 // Definice static členských proměnných
-//volatile uint8_t TimerControl::curr_motor_i = 0;
-//volatile uint8_t TimerControl::curr_dc_index = 0;
-volatile uint16_t TimerControl::curr_dc_value = 0;
+
+//volatile uint16_t TimerControl::curr_dc_value = 0;
 volatile uint8_t TimerControl::last_error_[5] = {0, 0, 0, 0, 0};
 volatile uint8_t TimerControl::last_error_global = 0;
 bool TimerControl::initialized = false;
+
 
 
 bool  TimerControl::isInitialized(){
@@ -56,10 +56,11 @@ int TimerControl::getLastError()
 void TimerControl::Timer1_Init() {
     
     TCNT1 = 0;                           // Reset timer counter
-    OCR1A = 24000;                       // Set initial compare value (≈1.5 ms at 16 MHz)
-    TIMSK1 = (1 << OCIE1A) | (1 << TOIE1); // Enable Compare A Match and Overflow interrupts
+    OCR1A = 63999;                       //
+    OCR1B = 24000;                       // Set initial compare value (≈1.5 ms at 16 MHz)
+    TIMSK1 = (1 << OCIE1A) |  (1 << OCIE1B)  | (1 << TOIE1); // Enable Compare A,B Match and Overflow interrupts
     TCCR1A = 0;                          // Normal mode (no PWM)
-    TCCR1B = (1 << CS10);                // Prescaler = 1 → timer runs at full CPU speed
+    TCCR1B =  (1 << WGM12) | (1 << CS10);//  Clears timer on Compare match A, Prescaler = 1 → timer runs at full CPU speed
 }
 
 void TimerControl::setPinHigh(uint8_t port_pin_code) {
@@ -99,9 +100,10 @@ void OnTimer1CompareMatchDC();
 void OnTimer1CompareMatchServo();
 
 // ISRs must be outside the class, but can call static member functions or access static members
-ISR(TIMER1_COMPA_vect) {	
+ISR(TIMER1_COMPB_vect) {	
     //OnTimer1CompareMatchDC();
     OnTimer1CompareMatchServo();
+    OnTimer1CompareMatchDC();
     
 }
 
@@ -111,7 +113,6 @@ void OnTimer1OwerflowDC();
 extern char serv_dbg[64];
 
 ISR(TIMER1_OVF_vect) {
-    TCNT1 = TIMER1_RELOAD;    // Reset timer counter (to value so max ticks will go to 64000 ie 4ms)
     OnTimer1OwerflowServo();
     OnTimer1OwerflowDC();
 

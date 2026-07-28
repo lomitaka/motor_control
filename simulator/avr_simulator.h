@@ -46,6 +46,7 @@ namespace AVRSim {
     extern const uint8_t CS10;
     extern const uint8_t CS11;
     extern const uint8_t CS12;
+    extern const uint8_t WGM12;
     extern const uint8_t OCIE1A;
     extern const uint8_t OCIE1B;
     extern const uint8_t TOIE1;

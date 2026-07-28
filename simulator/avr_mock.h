@@ -30,6 +30,7 @@ namespace AVRSim {
     extern const uint8_t CS10;
     extern const uint8_t CS11;
     extern const uint8_t CS12;
+    extern const uint8_t WGM12;
     extern const uint8_t OCIE1A;
     extern const uint8_t OCIE1B;
     extern const uint8_t TOIE1;
@@ -62,6 +63,7 @@ using AVRSim::SREG;
 using AVRSim::CS10;
 using AVRSim::CS11;
 using AVRSim::CS12;
+using AVRSim::WGM12;
 using AVRSim::OCIE1A;
 using AVRSim::OCIE1B;
 using AVRSim::TOIE1;

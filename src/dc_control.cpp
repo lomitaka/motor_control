@@ -34,6 +34,14 @@
    have array of the values..  on the overflow coppy current values to the buffer. 
    -use values from buffer for next time cycle. (gives prolong over 4ms but i think it is ok)
    
+*/
+
+
+/*
+
+Implemenetd as:
+    during each owerflow i will create sorted index array, that points to pins, pwm value array. 
+    values are incremented ...todo.
 
 
 */
@@ -47,9 +55,10 @@ constexpr uint16_t TIMER_GUARD_TICKS = 100;
 //currently used slot number (shows first empty index, max is 5 (by design))
 volatile uint8_t DCControl::dc_motor_count_ = 0;
 
-//
+/// per class index to array _dc_motors/dc_port_dir_pin/dc_port/pwm_pin 
 volatile uint8_t DCControl::dc_current_index_ = 0;
 
+//ordered inexes of dc_motors_buffer
 volatile uint8_t DCControl::dc_motors_off_order[5] = {0, 0, 0, 0, 0};
 
 //current motor speed from -1000 to 1000
@@ -95,7 +104,14 @@ void DCControl::setImmediate(int16_t value){
     if (value > 1000) value = 1000;
     if (value < -1000) value = -1000;
 
+    if (value > 0){
+        digitalWrite(DCControl::dc_port_dir_pin_[motor_index_],true);
+    } else {
+        digitalWrite(DCControl::dc_port_dir_pin_[motor_index_],false);
+    }
+
     setDCMotorValue(motor_index_, value);
+
 }
 
 uint8_t DCControl::getLastError() {
@@ -148,18 +164,10 @@ void DCControl::setDCMotorValue(uint8_t index, int16_t value)
         // dc_motors_ is 2 byte value, and there should be no way that this value will be updated only partially.
         cli();
         dc_motors_[index] = value;
-
         sei();
     }
 }
 
-    // Set port and pin for given motor index (0-4), port: 1=A, 2=B, 3=C, 4=D, pin: 0-7
-    //set port to 0 to disable motor
-/*void DCControl::setDCMotorPortPin(uint8_t index, uint8_t port, uint8_t pin_pwm, uint8_t pin_dir){
-    if (index < 5 && port <= 4 && pin_pwm <= 7){
-        dc_port_pwm_pin_[index] = (port << 4) | (pin_pwm & 0x0F);
-    }
-}*/
 
     // Set port and pin for given motor index (0-4), port_pwm_pin, port_dir_pin are arduno pins.    
     //set port to 0 to disable motor
@@ -187,7 +195,7 @@ void OnTimer1OwerflowDC(){
 
 
     bool mask[MAX_MOTOR_CNT] = {0,0,0,0,0};
-    //for amount of motors, extract min.
+    //for each of motors, find min pwm value, and put its index into dc_motors_off_order
     
     for (uint8_t i = 0;i < MAX_MOTOR_CNT;i++){
         int8_t min_index = -1; 
@@ -203,7 +211,7 @@ void OnTimer1OwerflowDC(){
         }
     }
 
-
+    //set next OCR1B comparsion to min value.
     DCControl::dc_current_index_ = 0;
     if (DCControl::dc_port_dir_pin_[DCControl::dc_motors_off_order[0]] > 0){
         uint16_t minval =  DCControl::dc_motors_buffer_[DCControl::dc_motors_off_order[0]];
@@ -214,45 +222,16 @@ void OnTimer1OwerflowDC(){
     DCControl::dc_current_index_ = 1;
 }
 
-bool isSmaller(uint8_t index1, uint8_t index2){
-    
-    
-    if (DCControl::dc_motors_buffer_[index1] < DCControl::dc_motors_buffer_[index2]){
-        return true;
-    }
-    if (DCControl::dc_motors_buffer_[index1] == DCControl::dc_motors_buffer_[index2]){
-        return index1 < index2;
-    }
-    return false;
-}
-
-/* 
-    check current motor value, and set 
-    TODO redo on compare match. with index.
-
-*/
 void OnTimer1CompareMatchDC(){
-    
-    //sets all ouptus pin  that are smaller than current_dc_index to zero (to avoid situation where 
-    // multiple pwm_pins have same value, so next tick may miss.   )
-    for (uint8_t i = 0 ; i < TimerControl::curr_dc_index; i++){
-        digitalWrite(DCControl::dc_port_pwm_pin_[DCControl::dc_motors_off_order[i]],false);
-    }
+      
+    digitalWrite(DCControl::dc_port_pwm_pin_[DCControl::dc_motors_off_order[DCControl::dc_current_index_]],false);
     
     uint16_t curr_value =  DCControl::dc_motors_buffer_[DCControl::dc_motors_off_order[0]];
     
-    //sets new value for futrue
+    //sets new compare match value value for futrue
     //maps 0-1000 to 0-64000
-    TimerControl::curr_dc_index++;     
-    OCR1B = max(TCNT1 + 100, mabs(curr_value)*64); 
-
-    int16_t diff = (int16_t)(curr_value/4 - TCNT1/4);
-    if (diff > TIMER_GUARD_TICKS/4){
-        OCR1B = curr_value;
-    }else {
-        OCR1B = TCNT1 + TIMER_GUARD_TICKS;
-    }
-    
+    DCControl::dc_current_index_++;     
+    OCR1B = max(TCNT1 + TIMER_GUARD_TICKS, mabs(curr_value)*64); 
 }
 
 
