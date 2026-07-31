@@ -196,23 +196,25 @@ void AVRTimerSimulator::checkInterrupts() {
     // Kontrola, zda jsou interrupty globálně povoleny
     if (!(AVRSim::SREG & 0x80)) return;
     
-    // Compare Match A
+    // Compare Match A (v CTC režimu funguje jako overflow)
     if ((AVRSim::TIFR1 & (1 << AVRSim::OCF1A)) && 
         (AVRSim::TIMSK1 & (1 << AVRSim::OCIE1A))) {
         AVRSim::TIFR1 &= ~(1 << AVRSim::OCF1A);  // Clear flag
-        if (compareMatchA_ISR_) {
-            //compareMatchA_ISR_();
+        
+        // V CTC režimu voláme overflow_ISR_ při Compare Match A
+        if (overflow_ISR_) {
             overflow_ISR_();
-            //CTC mode, when timer is cleared on OCR1A match
-            AVRSim::TCNT1 = 0;
         }
+        // Note: TCNT1 už je resetovaný v tick()
     }
     
     // Compare Match B
     if ((AVRSim::TIFR1 & (1 << AVRSim::OCF1B)) && 
         (AVRSim::TIMSK1 & (1 << AVRSim::OCIE1B))) {
         AVRSim::TIFR1 &= ~(1 << AVRSim::OCF1B);  // Clear flag
+        //printf("Before compare match");
         if (compareMatchB_ISR_) {
+            //printf("calling match b");
             compareMatchB_ISR_();
         }
     }
@@ -221,9 +223,9 @@ void AVRTimerSimulator::checkInterrupts() {
     if ((AVRSim::TIFR1 & (1 << AVRSim::TOV1)) && 
         (AVRSim::TIMSK1 & (1 << AVRSim::TOIE1))) {
         AVRSim::TIFR1 &= ~(1 << AVRSim::TOV1);  // Clear flag
-        if (overflow_ISR_) {
-            overflow_ISR_();
-        }
+        //if (overflow_ISR_) {
+            //overflow_ISR_();
+        //}
     }
 }
 

@@ -13,17 +13,6 @@
 #include <stdint.h>
 #include "motor.h"
 
-/*
-    //how it works (Servo approach)
-    - Timer 1 is set to 4ms overflow period (16MHz / 1 prescaler / 65536 counts = 244 Hz → 4.096 ms)
-    each cycle one servo motor is handled (5 motors max)
-     on the beginning of the cycle the pin is set HIGH, and compare match is set according to motor value
-        when compare match occurs, pin is set LOW
-    - thus each motor gets a pulse every 20ms (5 motors x 4ms)
-    
-       
-    
-*/
 
 class ServoControl {
 public:

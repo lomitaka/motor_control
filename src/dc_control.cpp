@@ -55,6 +55,9 @@ constexpr uint16_t TIMER_GUARD_TICKS = 100;
 //currently used slot number (shows first empty index, max is 5 (by design))
 volatile uint8_t DCControl::dc_motor_count_ = 0;
 
+//currently used slot number (shows first empty index, max is 5 (by design))
+volatile uint8_t DCControl::dc_motor_count_buffer_ = 0;
+
 /// per class index to array _dc_motors/dc_port_dir_pin/dc_port/pwm_pin 
 volatile uint8_t DCControl::dc_current_index_ = 0;
 
@@ -88,8 +91,16 @@ uint8_t DCControl::init(uint8_t pin_pwm, uint8_t pin_direction) {
         error_code_ = ErrorCodes::ERROR_NO_FREE_MOTOR;
         return error_code_;
     }; //error, no free motor
-   setDCMotorPortPin(motor_index_, port_pwm_index_,port_dir_index_); //port B, pin 0
     
+   
+    
+    if (dc_motor_count_ < 5){
+        dc_motor_count_++;
+    }else {
+        return ErrorCodes::ERROR_NO_FREE_MOTOR;
+    }
+    setDCMotorPortPin(motor_index_, port_pwm_index_,port_dir_index_); //port B, pin 0
+
     return ErrorCodes::NO_ERROR;
 }
 
@@ -184,10 +195,15 @@ void DCControl::setDCMotorPortPin(uint8_t index, uint8_t port_pwm_pin, uint8_t p
 */
 void OnTimer1OwerflowDC(){
    
+    DCControl::dc_motor_count_buffer_ = DCControl::dc_motor_count_;
+
     //copy each value to buffer, that is going to be applied for computations. 
-    for (uint8_t i = 0;i < DCControl::dc_motor_count_;i++){
+    for (uint8_t i = 0;i < DCControl::dc_motor_count_buffer_;i++){
         if (DCControl::dc_port_pwm_pin_[i] > 0){
-            digitalWrite(DCControl::dc_port_pwm_pin_[i],true);
+            //enable motor only if value is above 0
+            if (DCControl::dc_motors_buffer_[i] > 0){
+                digitalWrite(DCControl::dc_port_pwm_pin_[i],true);
+            }
             //update buffer
             DCControl::dc_motors_buffer_[i] = DCControl::dc_motors_[i];
         }
@@ -199,10 +215,12 @@ void OnTimer1OwerflowDC(){
     
     for (uint8_t i = 0;i < MAX_MOTOR_CNT;i++){
         int8_t min_index = -1; 
+        uint16_t min_value = 65535;  // Maximum
 
         for (int8_t j = 0;j < MAX_MOTOR_CNT;j++){
-            if ((DCControl::dc_motors_buffer_[min_index] > DCControl::dc_motors_buffer_[j]) && !mask[j]){
+            if ((DCControl::dc_motors_buffer_[min_index] < min_value) && !mask[j]){
                 min_index = (int8_t)j;
+                min_value = DCControl::dc_motors_buffer_[j];
             }
         }
         if (min_index >= 0){
@@ -213,25 +231,81 @@ void OnTimer1OwerflowDC(){
 
     //set next OCR1B comparsion to min value.
     DCControl::dc_current_index_ = 0;
-    if (DCControl::dc_port_dir_pin_[DCControl::dc_motors_off_order[0]] > 0){
-        uint16_t minval =  DCControl::dc_motors_buffer_[DCControl::dc_motors_off_order[0]];
+    //if next index is set, update motor.
+    if (DCControl::dc_port_pwm_pin_[DCControl::dc_motors_off_order[DCControl::dc_current_index_]] > 0){
+    
+        //curr value may be from 0-1000
+        uint16_t curr_value =  DCControl::dc_motors_buffer_[DCControl::dc_motors_off_order[DCControl::dc_current_index_]];
+    
         //maps 0-1000 to 0-64000
-        OCR1B = mabs(minval)*64; 
+        uint16_t target_ocr = mabs(curr_value) * 64;
+        uint16_t safe_ocr = TCNT1 + TIMER_GUARD_TICKS;
+
+        OCR1B = (target_ocr > safe_ocr) ? target_ocr : safe_ocr;
+
     }
+
+    
+    
+
    
-    DCControl::dc_current_index_ = 1;
+    
 }
 
+/**
+ * Timer1 Compare Match B ISR - PWM falling edge generator for DC motors
+ * 
+ * This ISR is called when TCNT1 reaches OCR1B value. It handles turning OFF motors
+ * at their specified duty cycle points, creating PWM signals.
+ * 
+ * PWM Generation Strategy:
+ * - Motors are sorted by duty cycle (0-1000 mapped to 0-64000 timer ticks)
+ * - All motors turn ON at overflow (TCNT1=0)
+ * - Each Compare Match B turns OFF one motor (falling edge)
+ * - OCR1B is dynamically updated to the next motor's OFF time
+ * 
+ * OCR1B Update Logic:
+ * - target_ocr = next motor's duty cycle position (0-64000)
+ * - safe_ocr = TCNT1 + TIMER_GUARD_TICKS (prevents missing compare match during ISR)
+ * - OCR1B = max(target_ocr, safe_ocr)
+ * 
+ * Edge Case Handling:
+ * If safe_ocr > OCR1A (e.g., 64050 > 64000 in CTC mode):
+ * - Compare Match won't trigger in this cycle
+ * - Motor stays HIGH until overflow
+ * - Next overflow resets OCR1B correctly
+ * - Result: Motor gets slightly longer pulse (~0.15% error), acceptable for DC PWM
+ * 
+ * Example with 3 motors (duty cycles: 20%, 50%, 80%):
+ * 1. Overflow: All motors HIGH, OCR1B=12800 (20%)
+ * 2. TCNT1=12800: Motor1 LOW, OCR1B=32000 (50%)
+ * 3. TCNT1=32000: Motor2 LOW, OCR1B=51200 (80%)
+ * 4. TCNT1=51200: Motor3 LOW
+ * 5. TCNT1=64000: Overflow, repeat
+ */
 void OnTimer1CompareMatchDC(){
       
-    digitalWrite(DCControl::dc_port_pwm_pin_[DCControl::dc_motors_off_order[DCControl::dc_current_index_]],false);
+    if (DCControl::dc_port_pwm_pin_[DCControl::dc_motors_off_order[DCControl::dc_current_index_]] > 0){
+        digitalWrite(DCControl::dc_port_pwm_pin_[DCControl::dc_motors_off_order[DCControl::dc_current_index_]],false);
+    }
+
+    DCControl::dc_current_index_ = (DCControl::dc_current_index_+1) % 5;  
+
+    //if next index is set, update motor.
+    if (DCControl::dc_port_pwm_pin_[DCControl::dc_motors_off_order[DCControl::dc_current_index_]] > 0){
     
-    uint16_t curr_value =  DCControl::dc_motors_buffer_[DCControl::dc_motors_off_order[0]];
+        //curr value may be from 0-1000
+        uint16_t curr_value =  DCControl::dc_motors_buffer_[DCControl::dc_motors_off_order[DCControl::dc_current_index_]];
     
-    //sets new compare match value value for futrue
-    //maps 0-1000 to 0-64000
-    DCControl::dc_current_index_++;     
-    OCR1B = max(TCNT1 + TIMER_GUARD_TICKS, mabs(curr_value)*64); 
+        //maps 0-1000 to 0-64000
+        uint16_t target_ocr = mabs(curr_value) * 64;
+        uint16_t safe_ocr = TCNT1 + TIMER_GUARD_TICKS;
+
+        OCR1B = (target_ocr > safe_ocr) ? target_ocr : safe_ocr;
+
+    }
+    
+    
 }
 
 

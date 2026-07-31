@@ -24,6 +24,18 @@ volatile uint8_t ServoControl::serv_pin_[5] = {0, 0, 0, 0, 0};
 
 
 
+/*
+    //how it works (Servo approach)
+    - Timer 1 is set to 4ms overflow period (With OCR1A) (16MHz / 1 prescaler / 64000 counts = 250 Hz → 4.000 ms)
+    each cycle one servo motor is handled (5 motors max)
+    on the beginning of the cycle the pin is set HIGH, and compare match B is set according to motor value
+        when compare match occurs, pin is set LOW
+    - thus each motor gets a pulse every 20ms (5 motors x 4ms)
+
+    
+*/
+
+
 ServoControl::ServoControl(uint8_t pin) {
 
     if (!TimerControl::isInitialized()){
@@ -118,36 +130,6 @@ void ServoControl::setServMotorPortPin(uint8_t index, uint8_t pin){
 }
 
 
-/*
-char serv_dbg[64];
-
-// Přepíše dbg stringovou reprezentací TimerControl::curr_motor_i (0-255),
-// maximálně 63 znaků + terminátor (dbg má velikost 64).
-inline void PrintIfServPortPinIsOne(uint16_t v) {
-    
-    char *out = serv_dbg;
-    // zvláštní případ 0
-    if (v == 0) {
-        out[0] = '0';
-        out[1] = '\0';
-        return;
-    }
-    // dočasné pole pro obrácené číslice (dostatečné pro uint32)
-    char tmp[12];
-    int tpos = 0;
-    while (v > 0 && tpos < (int)sizeof(tmp) - 1) {
-        tmp[tpos++] = (char)('0' + (v % 10));
-        v /= 10;
-    }
-    // obrátíme a uložíme do dbg, ale nepřekročíme 63 znaků
-    int maxlen = 63;
-    int written = 0;
-    while (tpos > 0 && written < maxlen) {
-        out[written++] = tmp[--tpos];
-    }
-    out[written] = '\0';
-}*/
-
 void OnTimer1CompareMatchServo(){
     // store current motor index as a single char in dbg and terminate the string
 
@@ -165,10 +147,11 @@ void OnTimer1OwerflowServo(){
     //serv_dbg[0] = 'a';
    // DDRB |= (1 << (3)); PORTB |= (1 << (3));
     ServoControl::curr_motor_i = (ServoControl::curr_motor_i +1) % 5;
+    
     if (ServoControl::serv_pin_[ServoControl::curr_motor_i] > 0){
         //TimerControl::setPinHigh(ServoControl::serv_pin_[TimerControl::curr_motor_i]);
         digitalWrite(ServoControl::serv_pin_[ServoControl::curr_motor_i],true);
         //maps value
-        OCR1A = (uint16_t)((ServoControl::serv_motors_[ServoControl::curr_motor_i]+1000)*8+16000);
+        OCR1B = (uint16_t)((ServoControl::serv_motors_[ServoControl::curr_motor_i]+1000)*8+16000);
     }
 }

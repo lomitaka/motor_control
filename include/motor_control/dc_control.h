@@ -39,6 +39,8 @@ private:
     volatile static uint8_t dc_current_index_;
     //number of motors, used by this class
     volatile static uint8_t dc_motor_count_;
+    //copy of dc_motor_count, but updated only on timer owerflow
+    volatile static uint8_t dc_motor_count_buffer_;
 
     //order in which motors should go down. (indexes points to dc_motors_buffer array)
     volatile static uint8_t dc_motors_off_order[5];

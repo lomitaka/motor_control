@@ -57,7 +57,7 @@ void TimerControl::Timer1_Init() {
     
     TCNT1 = 0;                           // Reset timer counter
     OCR1A = 63999;                       //
-    OCR1B = 24000;                       // Set initial compare value (≈1.5 ms at 16 MHz)
+    OCR1B = 65535;                       // Set initial compare value so it wont trigger before first overflow
     TIMSK1 = (1 << OCIE1A) |  (1 << OCIE1B)  | (1 << TOIE1); // Enable Compare A,B Match and Overflow interrupts
     TCCR1A = 0;                          // Normal mode (no PWM)
     TCCR1B =  (1 << WGM12) | (1 << CS10);//  Clears timer on Compare match A, Prescaler = 1 → timer runs at full CPU speed
