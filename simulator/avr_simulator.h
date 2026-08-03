@@ -8,6 +8,7 @@
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <queue>
 
 // Typy motorů
 enum class MotorType {
@@ -68,6 +69,7 @@ struct PinMonitor {
     double lastPulseWidth_us;       // Délka posledního HIGH pulzu
     double lastPeriod_us;           // Délka poslední periody
     double currentLoad;             // Aktuální zatížení v procentech
+    std::queue<uint64_t> stepTimestamps;  // Fronta timestampů step pulzů (pro měření frekvence)
     
     PinMonitor() 
         : motorType(MotorType::NONE)
@@ -113,6 +115,7 @@ private:
     void updatePinMonitor(uint8_t arduinoPin, bool state);  // Aktualizace sledování pinu
     double calculateServoLoad(const PinMonitor& monitor);   // Výpočet zatížení serva
     double calculateDCLoad(const PinMonitor& monitor);      // Výpočet zatížení DC motoru
+    double calculateStepLoad(PinMonitor& monitor);           // Výpočet frekvence step pulzů (steps/s)
     uint8_t arduinoPinToPort(uint8_t arduinoPin, uint8_t& portPin);  // Převod Arduino pin -> PORT
     
     std::ofstream logFile_;

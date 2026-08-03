@@ -46,7 +46,7 @@ AVRTimerSimulator::AVRTimerSimulator(const std::string& logFile)
     , prevPORTD_(0)
     , interruptsEnabled_(false)
     , lastLoadReport_us_(0)
-    , loadReportInterval_us_(20000.0)  // Report každých 20ms
+    , loadReportInterval_us_(100.0)  // Report každých 20ms () 100us
 {
     logFile_.open(logFile);
     if (!logFile_.is_open()) {
@@ -292,7 +292,7 @@ void AVRTimerSimulator::simulate(double duration_seconds, double timestep_us) {
         
         // Periodické logování zatížení motorů
         //logPinChange();
-        //logMotorLoads();
+        logMotorLoads();
         
         // Progress report
         if (cycleCount_ >= nextReport * (reportCounter + 1)) {
@@ -393,6 +393,11 @@ void AVRTimerSimulator::updatePinMonitor(uint8_t arduinoPin, bool state) {
         }
         monitor.lastRisingEdge_us = currentTime_us;
         
+        // Pro stepper: přidat timestamp do fronty
+        if (monitor.motorType == MotorType::STEPPER) {
+            monitor.stepTimestamps.push(currentTime_us);
+        }
+        
     } else if (!state && monitor.currentState) {
         // Sestupná hrana (HIGH -> LOW)
         monitor.lastFallingEdge_us = currentTime_us;
@@ -410,8 +415,7 @@ void AVRTimerSimulator::updatePinMonitor(uint8_t arduinoPin, bool state) {
                     monitor.currentLoad = calculateDCLoad(monitor);
                     break;
                 case MotorType::STEPPER:
-                    // TODO: Implementace pro stepper motor
-                    monitor.currentLoad = 0.0;
+                    monitor.currentLoad = calculateStepLoad(monitor);
                     break;
                 default:
                     monitor.currentLoad = 0.0;
@@ -460,6 +464,24 @@ double AVRTimerSimulator::calculateDCLoad(const PinMonitor& monitor) {
     if (dutyCycle > 100.0) dutyCycle = 100.0;
     
     return dutyCycle;
+}
+
+// Výpočet frekvence step pulzů: počet kroků za poslední sekundu
+double AVRTimerSimulator::calculateStepLoad(PinMonitor& monitor) {
+    uint64_t currentTime_us = (cycleCount_ * 1000000ULL) / cpuFrequency_;
+    
+    // Odstranit timestampy starší než 1 sekunda
+    while (!monitor.stepTimestamps.empty()) {
+        uint64_t oldestTime = monitor.stepTimestamps.front();
+        if (currentTime_us - oldestTime > 1000000) {  // Starší než 1s
+            monitor.stepTimestamps.pop();
+        } else {
+            break;  // Všechny další jsou novější
+        }
+    }
+    
+    // Vrátit počet kroků za poslední sekundu
+    return static_cast<double>(monitor.stepTimestamps.size());
 }
 
 // Logování zatížení všech konfigurovaných motorů

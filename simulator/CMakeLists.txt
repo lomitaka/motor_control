@@ -24,6 +24,12 @@ set(MOTOR_CONTROL_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/ramp.cpp
 )
 
+# Zdrojové soubory pro stepper motor control
+set(STEPPER_CONTROL_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/step_control.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/step_timer_control.cpp
+)
+
 # Vytvoření knihovny simulátoru
 add_library(avr_simulator STATIC ${SIMULATOR_SOURCES})
 
@@ -83,6 +89,24 @@ target_compile_options(motor_scenario_test PRIVATE
     -Wno-unused-variable
 )
 
+# Vytvoření testu pro stepper motory
+add_executable(stepper_test
+    ${CMAKE_CURRENT_SOURCE_DIR}/test_stepper.cpp
+    ${STEPPER_CONTROL_SOURCES}
+)
+
+target_link_libraries(stepper_test avr_simulator)
+
+target_compile_definitions(stepper_test PRIVATE 
+    SIMULATION_MODE=1
+    F_CPU=16000000UL
+)
+
+target_compile_options(stepper_test PRIVATE 
+    -DAVR_MOCK
+    -Wno-unused-variable
+)
+
 # Build targets
 add_custom_target(run_simulation
     COMMAND motor_simulator
@@ -100,6 +124,12 @@ add_custom_target(run_scenario_test
     COMMAND motor_scenario_test
     DEPENDS motor_scenario_test
     COMMENT "Running motor scenario tests (servo, DC, stepper)"
+)
+
+add_custom_target(run_stepper_test
+    COMMAND stepper_test
+    DEPENDS stepper_test
+    COMMENT "Running stepper motor test"
 )
 
 message(STATUS "AVR Simulator configured")
