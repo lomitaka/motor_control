@@ -51,6 +51,8 @@ volatile int16_t StepperContinuous::target_speeds_[MAX_STEPPERS] = {0, 0, 0, 0, 
 namespace {
     volatile uint16_t step_accumulators[5] = {0, 0, 0, 0, 0};           // Accumulated time in ticks (16-bit for speed!)
     volatile uint16_t step_intervals[5] = {62500, 62500, 62500, 62500, 62500}; // Interval between steps in ticks (1 Hz initial)
+    volatile uint16_t step_remainders[5] = {0, 0, 0, 0, 0}; // Remainder of TICKS_PER_SECOND % speed
+    volatile uint16_t step_remainder_cntr[5] = {0, 0, 0, 0, 0}; // has vaule from speed to zero; used to redestribute remainder 
     volatile uint16_t acceleration_rates[5] = {500, 500, 500, 500, 500};     // steps/s²
     volatile uint8_t accel_counter[5] = {0, 0, 0, 0, 0};                 // Counter for acceleration updates
     volatile bool step_pin_high[5] = {false, false, false, false, false}; // Tracks which pins are HIGH
@@ -178,13 +180,17 @@ void StepperContinuous::updateStepInterval() {
     // interval_ticks = 62500 / steps_per_sec
     uint16_t abs_speed = (speed < 0) ? -speed : speed;
     
-    if (abs_speed == 0) abs_speed = 1;
-    
     uint16_t interval_ticks = TICKS_PER_SECOND / abs_speed;
+    uint16_t remainder = TICKS_PER_SECOND % speed;
+    if (remainder > 0) {
+        interval_ticks++;
+    }
     if (interval_ticks < 3) interval_ticks = 3; // Safety: min 3 ticks (48μs, ~20kHz max)
     
     cli();
     step_intervals[motor_index_] = interval_ticks;
+    step_remainders[motor_index_] = remainder;
+    step_remainder_cntr[motor_index_] = speed;
     sei();
 }
 
@@ -297,6 +303,9 @@ void OnTimer1StepperISR() {
         // Accumulator logic for step generation (16-bit arithmetic = fast!)
         step_accumulators[i] += ISR_PERIOD_TICKS; // Add 7 ticks (112μs)
         
+
+
+
         // Generate steps if accumulated time exceeds interval
         while (step_accumulators[i] >= step_intervals[i]) {
             // Set step pin HIGH (will be cleared in next ISR)
@@ -305,6 +314,20 @@ void OnTimer1StepperISR() {
             
             // Subtract interval from accumulator
             step_accumulators[i] -= step_intervals[i];
+            
+            //division causes that ticks are not precise, so add a litle delay to some
+            //ie.. if i have speedX ticks per second. add +1 for first step_remainers ticks. 
+            //examle:: speed 3000ticks per sec. remainder 2500. add extra delau for first 2500 of 3000 ticks
+            if (StepperContinuous::current_speeds_[i] > 0 && step_remainders[i] > 0)
+            {
+                if (step_remainder_cntr[i]  > step_remainders[i]){
+                    step_accumulators[i] += 1;
+                }       
+                step_remainder_cntr[i]--;
+                if (step_remainder_cntr[i] == 0) { 
+                    step_remainder_cntr[i] = StepperContinuous::current_speeds_[i];
+                }
+            }
         }
     }
 }

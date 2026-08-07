@@ -396,6 +396,13 @@ void AVRTimerSimulator::updatePinMonitor(uint8_t arduinoPin, bool state) {
         // Pro stepper: přidat timestamp do fronty
         if (monitor.motorType == MotorType::STEPPER) {
             monitor.stepTimestamps.push(currentTime_us);
+            monitor.currentLoad = calculateStepLoad(monitor);
+            
+            if (monitor.lastRisingEdge_us > 0) {
+                // Výpočet periody (čas mezi dvěma nábězněmi hranami)
+                monitor.lastPeriod_us = 1000000.0/(currentTime_us - monitor.lastRisingEdge_us);
+            }
+
         }
         
     } else if (!state && monitor.currentState) {
@@ -415,7 +422,7 @@ void AVRTimerSimulator::updatePinMonitor(uint8_t arduinoPin, bool state) {
                     monitor.currentLoad = calculateDCLoad(monitor);
                     break;
                 case MotorType::STEPPER:
-                    monitor.currentLoad = calculateStepLoad(monitor);
+
                     break;
                 default:
                     monitor.currentLoad = 0.0;
