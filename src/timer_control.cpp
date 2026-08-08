@@ -40,19 +40,21 @@ int TimerControl::getLastError()
 /// Initializes Timer1 for precise timing control.
 /// 
 /// Configuration summary:
-/// - Timer1 runs in **Normal mode** (counts from 0 to 65535, then overflows).
-/// - Compare Match A interrupt (OCIE1A) and Overflow interrupt (TOIE1) are enabled.
-/// - Compare value (OCR1A = 24000) defines the timing point for Compare Match event.
+/// - Timer1 runs in **CTC mode** (Clear Timer on Compare Match A).
+/// - Compare Match A interrupt (OCIE1A), Compare Match B (OCIE1B), and Overflow interrupt (TOIE1) are enabled.
+/// - Compare value (OCR1A = 63999) defines the period (timer resets at this value).
 /// - No prescaler is used (CS10 = 1), so timer runs at full CPU clock speed.
 ///
 /// For example, with a 16 MHz clock:
 ///   - Each timer tick = 1 / 16,000,000 s = 62.5 ns
-///   - OCR1A = 24000 → Compare Match every 24000 * 62.5 ns = 1.5 ms
-///   - Full overflow (65536 ticks) = 4.096 ms
+///   - OCR1A = 63999 → CTC period = 64000 × 62.5 ns = 4 ms
+///   - PWM frequency = 250 Hz
+///   - Compare Match A defines the period (timer resets to 0)
+///   - Compare Match B is dynamically scheduled for motor PWM falling edges
 ///
-/// This setup can be used to generate PWM-like pulses or multiplexed servo control.
-/// (Compare Match toggles output or triggers ISR to set pin LOW,
-///  Overflow ISR can set pin HIGH for the next motor.)
+/// This setup generates software PWM for DC motors and servo control.
+/// (Compare Match B triggers ISR to set pins LOW at duty cycle points,
+///  Overflow ISR sets pins HIGH for the next PWM cycle.)
 void TimerControl::Timer1_Init() {
     
     TCNT1 = 0;                           // Reset timer counter

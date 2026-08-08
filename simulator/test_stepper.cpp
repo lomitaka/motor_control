@@ -206,7 +206,7 @@ void test_immediate_speed() {
 }
 
 
-void OnTimer1StepperISR();
+void OnTimer1StepperContinuousISR();
 
 int main() {
     
@@ -220,7 +220,7 @@ int main() {
     
     // Registrace ISR callbacků
     //simulator.registerCompareMatchB_ISR(onCompareMatch);
-    simulator.registerOverflow_ISR(OnTimer1StepperISR);
+    simulator.registerOverflow_ISR(OnTimer1StepperContinuousISR);
 
 
     

@@ -18,6 +18,8 @@ set(LIBRARY_SOURCES
     src/servo_control.cpp
     src/ramp.cpp
     src/arduino.cpp
+    src/stepp_control.cpp
+    src/stepp_timer_control.cpp
 )
 
 # Zdrojové soubory pro executable (hlavní program)

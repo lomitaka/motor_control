@@ -270,10 +270,10 @@ void OnTimer1OwerflowDC(){
  * - OCR1B = max(target_ocr, safe_ocr)
  * 
  * Edge Case Handling:
- * If safe_ocr > OCR1A (e.g., 64050 > 64000 in CTC mode):
- * - Compare Match won't trigger in this cycle
- * - Motor stays HIGH until overflow
- * - Next overflow resets OCR1B correctly
+ * If safe_ocr > OCR1A (e.g., 64050 > 63999 in CTC mode):
+ * - Compare Match B won't trigger in this cycle (timer resets at OCR1A)
+ * - Motor stays HIGH until next CTC reset (timer returns to 0)
+ * - Next cycle resets OCR1B correctly
  * - Result: Motor gets slightly longer pulse (~0.15% error), acceptable for DC PWM
  * 
  * Example with 3 motors (duty cycles: 20%, 50%, 80%):

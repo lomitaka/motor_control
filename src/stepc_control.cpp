@@ -104,8 +104,8 @@ uint8_t StepperContinuous::init(uint8_t step_pin, uint8_t dir_pin) {
     sei();
     
     // Initialize timer if not already done
-    if (!StepTimerControl::isInitialized()) {
-        StepTimerControl::Timer1_Init();
+    if (!StepCTimerControl::isInitialized()) {
+        StepCTimerControl::Timer1_Init();
     }
     
     // Pre-calculate acceleration rate for this motor
@@ -162,9 +162,6 @@ bool StepperContinuous::isMoving() {
     return current_speeds_[motor_index_] != 0;
 }
 
-uint8_t StepperContinuous::getLastError() {
-    return error_code_;
-}
 
 void StepperContinuous::updateStepInterval() {
     int16_t speed = current_speeds_[motor_index_];
@@ -247,7 +244,7 @@ void StepperContinuous::updateAccelerationRate() {
  *   * If accumulator >= 19 ticks: set pin HIGH, accumulator -= 19 ticks
  *   * Every ~3rd ISR generates one step
  */
-void OnTimer1StepperISR() {
+void OnTimer1StepperContinuousISR() {
     // First: clear all pins that were set HIGH in previous ISR
     for (uint8_t i = 0; i < StepperContinuous::stepper_count_; i++) {
         if (step_pin_high[i]) {

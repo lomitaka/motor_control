@@ -5,6 +5,12 @@
  * Controls stepper motor with continuous rotation at specified speed.
  * Suitable for applications like conveyor belts, fans, or constant speed movement.
  * 
+ * Timer Configuration:
+ * - Prescaler: 256 → Timer freq = 62.5 kHz, tick = 16 μs
+ * - ISR frequency: 8928 Hz (every 112μs, 7 ticks)
+ * - CTC mode with OCR1A = 7
+ * - Cannot run simultaneously with DC/Servo control (different timer config)
+ * 
  * @example
  * StepperContinuous motor(2, 3);       // STEP=pin2, DIR=pin3
  * motor.setAcceleration(500);          // 500 steps/s² acceleration
@@ -102,12 +108,6 @@ public:
      * @return true if speed > 0, false if stopped
      */
     bool isMoving();
-    
-    /**
-     * @brief Get last error code
-     * @return Error code (0 = no error)
-     */
-    uint8_t getLastError();
 
 private:
     // Pin configuration
@@ -137,7 +137,7 @@ private:
     volatile static int16_t current_speeds_[MAX_STEPPERS];
     volatile static int16_t target_speeds_[MAX_STEPPERS];
     
-    friend void OnTimer1StepperISR();
+    friend void OnTimer1StepperContinuousISR();
 };
 
 #endif // STEPPER_CONTINUOUS_H

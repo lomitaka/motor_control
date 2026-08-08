@@ -7,9 +7,9 @@
     #include <avr/interrupt.h>
 #endif
 
-bool StepTimerControl::initialized_ = false;
+bool StepCTimerControl::initialized_ = false;
 
-void StepTimerControl::Timer1_Init() {
+void StepCTimerControl::Timer1_Init() {
     // Clear timer configuration
     TCCR1A = 0;
     TCCR1B = 0;
@@ -31,7 +31,7 @@ void StepTimerControl::Timer1_Init() {
     initialized_ = true;
 }
 
-bool StepTimerControl::isInitialized() {
+bool StepCTimerControl::isInitialized() {
     return initialized_;
 }
 
@@ -42,6 +42,6 @@ ISR(TIMER1_COMPA_vect) {
 }
 #else
 ISR(TIMER1_COMPA_vect) {
-    OnTimer1StepperISR();
+    OnTimer1StepperContinuousISR();
 }
 #endif

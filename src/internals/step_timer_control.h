@@ -19,7 +19,7 @@
  * - Max speed: ~10000 steps/s per motor (allows ~11 ticks per step)
  * - Good resolution for 0-3000 RPM range
  */
-class StepTimerControl {
+class StepCTimerControl {
 public:
     /**
      * @brief Initialize Timer1 for stepper motor control
@@ -41,6 +41,6 @@ private:
 };
 
 // Forward declaration for ISR
-void OnTimer1StepperISR();
+void OnTimer1StepperContinuousISR();
 
 #endif // STEP_TIMER_CONTROL_H
