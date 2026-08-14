@@ -19,19 +19,25 @@ void SteppTimerControl::Timer1_Init() {
     OCR1A = 64000;  // Initial value (will be updated dynamically)
     OCR1B = 65535;  // Initial value (will be updated dynamically)
     
-    // Enable Timer1 Compare Match A and B interrupts
-    TIMSK1 = (1 << OCIE1A) | (1 << OCIE1B);
+    // Enable Timer1 Compare Match A, B, and Overflow interrupts
+    TIMSK1 = (1 << OCIE1A) | (1 << OCIE1B) | (1 << TOIE1);
     
     // Configure Timer1:
-    // - CTC mode (WGM12=1): Clear Timer on Compare Match A
+    // - Normal mode (no WGM bits): Timer counts 0 to 65535, then overflows
     // - No prescaler (CS10=1): Timer runs at CPU_freq (16 MHz)
-    TCCR1B = (1 << WGM12) | (1 << CS10);
+    // - Overflow every 65536 ticks = 4.096 ms
+    TCCR1B = (1 << CS10);
     
     initialized_ = true;
 }
 
 bool SteppTimerControl::isInitialized() {
     return initialized_;
+}
+
+
+ISR(TIMER1_OVF_vect){
+    OnTimer1StepperPositioningOverflow();
 }
 
 // Timer1 Compare Match A ISR - rising edges and scheduling
@@ -55,3 +61,4 @@ ISR(TIMER1_COMPB_vect) {
     OnTimer1StepperPositioningOCRB();
 }
 #endif
+

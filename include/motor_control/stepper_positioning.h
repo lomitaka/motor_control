@@ -165,6 +165,7 @@ private:
     volatile static int16_t current_speeds_[MAX_STEPPERS];
     volatile static int16_t target_speeds_[MAX_STEPPERS];
     
+    friend void OnTimer1StepperPositioningOverflow();
     friend void OnTimer1StepperPositioningOCRA();
     friend void OnTimer1StepperPositioningOCRB();
 };

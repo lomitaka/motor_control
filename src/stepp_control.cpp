@@ -47,9 +47,10 @@ namespace {
     volatile int16_t remaining_ticks[5] = {0, 0, 0, 0, 0};      // Remaining steps to target
     volatile int16_t braking_distance[5] = {0, 0, 0, 0, 0};    // Steps needed to stop
     
-    // Timing
-    volatile uint32_t next_step_time[5] = {0, 0, 0, 0, 0};     // Absolute time of next step (in timer ticks)
-    volatile uint16_t step_interval_ticks[5] = {16000, 16000, 16000, 16000, 16000}; // Ticks between steps
+    // Timing (split to avoid 32-bit arithmetic)
+    volatile uint16_t overflow_skip_count[5] = {0, 0, 0, 0, 0}; // Number of overflows until next step
+    volatile uint16_t next_tick_count[5] = {0, 0, 0, 0, 0};     // Tick value within overflow period for next step
+    volatile uint32_t step_interval_ticks[5] = {16000, 16000, 16000, 16000, 16000}; // Full interval between steps (for recalculation)
     
     // Acceleration
     volatile uint16_t acceleration_rates[5] = {500, 500, 500, 500, 500}; // steps/s²
@@ -98,7 +99,8 @@ uint8_t StepperPositioning::init(uint8_t step_pin, uint8_t dir_pin) {
     target_speeds_[motor_index_] = 0;
     remaining_ticks[motor_index_] = 0;
     braking_distance[motor_index_] = 0;
-    next_step_time[motor_index_] = TCNT1 + 10000; // Start in future
+    overflow_skip_count[motor_index_] = 0;        // No overflow skip initially
+    next_tick_count[motor_index_] = TCNT1 + 10000; // Start in future
     step_interval_ticks[motor_index_] = 16000;    // 1 kHz initial
     sei();
     
@@ -119,7 +121,7 @@ uint8_t StepperPositioning::setTargetTicks(int16_t steps) {
     if (steps < -16000) steps = -16000;
     
     cli();
-    int16_t current_remaining = remaining_ticks[motor_index_];
+    //int16_t current_remaining = remaining_ticks[motor_index_];
     int16_t brake_dist = braking_distance[motor_index_];
     sei();
     
@@ -228,11 +230,11 @@ void StepperPositioning::updateStepInterval() {
     if (abs_speed == 0) abs_speed = 1;
     
     uint32_t interval = TICKS_PER_SECOND / abs_speed;
-    if (interval > 65535) interval = 65535;
     if (interval < 100) interval = 100; // Safety: min 100 ticks (6.25μs)
+    // Note: interval can be > 65535 (e.g., for very slow speeds)
     
     cli();
-    step_interval_ticks[motor_index_] = (uint16_t)interval;
+    step_interval_ticks[motor_index_] = interval;
     sei();
 }
 
@@ -291,18 +293,77 @@ void StepperPositioning::updateBrakingDistance() {
     sei();
 }
 
+
+/**
+ * @brief Timer1 Overflow ISR - Acceleration/deceleration and overflow counting
+ * 
+ * Called every 65536 ticks (4.096 ms). This ISR:
+ * 1. Handles acceleration/deceleration for all motors
+ * 2. Decrements overflow_skip_count for pending steps
+ * 3. Recalculates step intervals when speed changes
+ */
+void OnTimer1StepperPositioningOverflow(){
+
+    for (uint8_t i = 0; i < StepperPositioning::stepper_count_; i++) {
+        // Decrement overflow skip counter
+        if (overflow_skip_count[i] > 0) {
+            overflow_skip_count[i]--;
+        }
+        
+        // Handle acceleration/deceleration
+        int16_t current = StepperPositioning::current_speeds_[i];
+        int16_t target = StepperPositioning::target_speeds_[i];
+        int16_t remaining = remaining_ticks[i];
+        int16_t brake_dist = braking_distance[i];
+        
+        // Check if we need to start braking
+        int16_t abs_remaining = (remaining < 0) ? -remaining : remaining;
+        if (abs_remaining <= brake_dist && remaining != 0) {
+            // Start deceleration
+            target = 0;
+        }
+        
+        // Accelerate/decelerate
+        if (current != target) {
+            uint16_t change = speed_change_per_step[i];
+            
+            if (current < target) {
+                current += change;
+                if (current > target) current = target;
+            } else {
+                current -= change;
+                if (current < target) current = target;
+            }
+            
+            StepperPositioning::current_speeds_[i] = current;
+            
+            // Recalculate step interval
+            if (current != 0) {
+                uint16_t abs_speed = (current < 0) ? -current : current;
+                if (abs_speed == 0) abs_speed = 1;
+                uint32_t interval = TICKS_PER_SECOND / abs_speed;
+                if (interval < 100) interval = 100;
+                step_interval_ticks[i] = interval;
+            }
+        }
+    }
+}
+
+
 /**
  * @brief Timer1 OCRA ISR - Rising edge generation and next event scheduling
  * 
  * Called when TCNT1 reaches OCR1A. This ISR:
- * 1. Generates STEP rising edges for motors whose next_step_time has arrived
- * 2. Updates motor states (acceleration, position, speed)
+ * 1. Generates STEP rising edges for motors whose time has arrived (overflow_skip_count == 0 && TCNT1 >= next_tick_count)
+ * 2. Updates motor position (remaining_ticks)
  * 3. Schedules next OCR1A for the nearest motor event
  * 4. Schedules OCR1B for falling edges (few ticks later)
+ * 
+ * Uses 16-bit arithmetic only for speed on 8-bit AVR.
  */
 void OnTimer1StepperPositioningOCRA() {
     uint16_t current_time = TCNT1;
-    uint32_t next_event = current_time + 65535; // Far future
+    uint16_t next_event = 65535; // Max value
     step_pins_high_mask = 0;
     
     // Process each active motor
@@ -310,78 +371,48 @@ void OnTimer1StepperPositioningOCRA() {
         // Skip if motor not configured
         if (StepperPositioning::step_pins_[i] == 0) continue;
         
-        // Check if this motor needs a step now
-        if (next_step_time[i] <= current_time + TIMER_GUARD_TICKS) {
-            // Generate step if motor still has remaining ticks
-            if (remaining_ticks[i] != 0) {
-                // Set step pin HIGH
+        // Check if this motor needs a step now (overflow_skip_count == 0 and time reached)
+        if (overflow_skip_count[i] == 0 && remaining_ticks[i] != 0) {
+            if (next_tick_count[i] <= current_time + TIMER_GUARD_TICKS) {
+                // Generate step
                 digitalWrite(StepperPositioning::step_pins_[i], HIGH);
                 step_pins_high_mask |= (1 << i);
                 
                 // Decrement remaining ticks
                 if (remaining_ticks[i] > 0) {
                     remaining_ticks[i]--;
-                } else {
+                } else if (remaining_ticks[i] < 0) {
                     remaining_ticks[i]++;
                 }
                 
-                // Update next step time
-                next_step_time[i] = current_time + step_interval_ticks[i];
-            }
-            
-            // Handle acceleration/deceleration
-            int16_t current = StepperPositioning::current_speeds_[i];
-            int16_t target = StepperPositioning::target_speeds_[i];
-            int16_t remaining = remaining_ticks[i];
-            int16_t brake_dist = braking_distance[i];
-            
-            // Check if we need to start braking
-            int16_t abs_remaining = (remaining < 0) ? -remaining : remaining;
-            if (abs_remaining <= brake_dist && remaining != 0) {
-                // Start deceleration
-                target = 0;
-            }
-            
-            // Accelerate/decelerate
-            if (current != target) {
-                uint16_t change = speed_change_per_step[i];
+                // Calculate next step time: split interval into overflow count and tick count
+                uint32_t interval = step_interval_ticks[i];
+                overflow_skip_count[i] = interval / 65536;  // Integer division
+                next_tick_count[i] = interval % 65536;       // Remainder
                 
-                if (current < target) {
-                    current += change;
-                    if (current > target) current = target;
-                } else {
-                    current -= change;
-                    if (current < target) current = target;
+                // If next_tick_count is very small, it might trigger immediately - add to current time
+                if (overflow_skip_count[i] == 0) {
+                    next_tick_count[i] = current_time + (uint16_t)interval;
                 }
-                
-                StepperPositioning::current_speeds_[i] = current;
-                
-                // Recalculate step interval
-                if (current != 0) {
-                    uint16_t abs_speed = (current < 0) ? -current : current;
-                    if (abs_speed == 0) abs_speed = 1;
-                    uint32_t interval = TICKS_PER_SECOND / abs_speed;
-                    if (interval > 65535) interval = 65535;
-                    if (interval < 100) interval = 100;
-                    step_interval_ticks[i] = (uint16_t)interval;
-                }
-            }
-            
-            // Stop if reached target
-            if (remaining_ticks[i] == 0) {
-                StepperPositioning::current_speeds_[i] = 0;
             }
         }
+
+        // Stop if reached target
+        if (remaining_ticks[i] == 0) {
+            StepperPositioning::current_speeds_[i] = 0;
+        }
         
-        // Find nearest next event
-        if (remaining_ticks[i] != 0 && next_step_time[i] < next_event) {
-            next_event = next_step_time[i];
+        // Find nearest next event (only motors with overflow_skip_count == 0)
+        if (remaining_ticks[i] != 0 && overflow_skip_count[i] == 0) {
+            if (next_tick_count[i] < next_event) {
+                next_event = next_tick_count[i];
+            }
         }
     }
     
     // Schedule next OCRA
-    if (next_event < current_time + 65535) {
-        uint16_t safe_next = (uint16_t)(next_event - current_time);
+    if (next_event < 65535) {//TODO FIX
+        uint16_t safe_next = (next_event > current_time) ? (next_event - current_time) : TIMER_GUARD_TICKS;
         if (safe_next < TIMER_GUARD_TICKS) safe_next = TIMER_GUARD_TICKS;
         OCR1A = current_time + safe_next;
     } else {
