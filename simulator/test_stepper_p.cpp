@@ -25,6 +25,7 @@ void test_single_stepper_speeds(AVRTimerSimulator * sim) {
     // Create stepper: STEP=pin 2, DIR=pin 3
     StepperPositioning motor1(2, 3);
     motor1.setAcceleration(500); // 500 steps/s² acceleration
+    motor1.setSpeed(500); // 500 steps/s² acceleration
     
     sim->configurePin(2, MotorType::STEPPER);
     sim->configurePin(3, MotorType::NONE);

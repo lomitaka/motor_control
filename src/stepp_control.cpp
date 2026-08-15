@@ -39,7 +39,7 @@ volatile uint8_t StepperPositioning::stepper_count_ = 0;
 volatile uint8_t StepperPositioning::step_pins_[MAX_STEPPERS] = {0, 0, 0, 0, 0};
 volatile uint8_t StepperPositioning::dir_pins_[MAX_STEPPERS] = {0, 0, 0, 0, 0};
 volatile int16_t StepperPositioning::current_speeds_[MAX_STEPPERS] = {0, 0, 0, 0, 0};
-volatile int16_t StepperPositioning::target_speeds_[MAX_STEPPERS] = {0, 0, 0, 0, 0};
+volatile int16_t StepperPositioning::target_speeds_[MAX_STEPPERS] = {200, 200, 200, 200, 200};
 
 struct Interval {
     uint8_t skip_count;
@@ -220,6 +220,8 @@ uint8_t StepperPositioning::setTargetTicks(int16_t steps) {
     
     // Update direction
     updateDirection();
+    updateStepInterval();
+    updateBrakingDistance();
     
     return 0;
 }
@@ -403,6 +405,8 @@ void StepperPositioning::updateBrakingDistance() {
  */
 void OnTimer1StepperPositioningOverflow(){
 
+    uint16_t next_event = 65535; // Max value
+
     for (uint8_t i = 0; i < StepperPositioning::stepper_count_; i++) {
         // Decrement overflow skip counter
         if (remaining[i].skip_count > 0) {
@@ -412,11 +416,11 @@ void OnTimer1StepperPositioningOverflow(){
         // Handle acceleration/deceleration
         //int16_t current = StepperPositioning::current_speeds_[i];
         //int16_t target = StepperPositioning::target_speeds_[i];
-        int16_t remaining = remaining_ticks[i];
+        int16_t remaining_t = remaining_ticks[i];
         int16_t brake_dist = braking_distance[i];
         
         // Check if we need to start braking
-        int16_t abs_remaining = (remaining < 0) ? -remaining : remaining;
+        int16_t abs_remaining = (remaining_t < 0) ? -remaining_t : remaining_t;
         if (abs_remaining <= brake_dist && remaining != 0) {
             // Start deceleration (pick next target that is stop)
             target[i].remainder = 0;
@@ -438,7 +442,24 @@ void OnTimer1StepperPositioningOverflow(){
             }
         
         }
+
+        //Is ith counter enabled?
+        if (current[i].remainder != 0 || current[i].skip_count == 0 ) {
+            //Take nearest event
+            if (remaining->skip_count == 0 && remaining[i].remainder < next_event) {
+                next_event = remaining[i].remainder;
+            }
+        }
     }
+
+
+    uint16_t current_time = TCNT1;
+            // Schedule next OCRA
+    if (next_event < 65535) {//TODO FIX
+        uint16_t safe_next = (next_event > current_time) ? (next_event - current_time) : TIMER_GUARD_TICKS;
+        if (safe_next < TIMER_GUARD_TICKS) safe_next = TIMER_GUARD_TICKS;
+        OCR1A = current_time + safe_next;
+    } 
 }
 
 

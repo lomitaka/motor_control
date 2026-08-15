@@ -192,18 +192,39 @@ void AVRTimerSimulator::tick() {
     }
 }
 
+/*
+    Has two modes CTC - where when OCRA is reached, counter is restarted. OCRB used as interrupt
+    Normal mode.  
+*/
 void AVRTimerSimulator::checkInterrupts() {
     // Kontrola, zda jsou interrupty globálně povoleny
     if (!(AVRSim::SREG & 0x80)) return;
     
+    // Detekce CTC režimu (WGM12 bit v TCCR1B)
+    bool isCTCMode = (AVRSim::TCCR1B & (1 << AVRSim::WGM12)) != 0;
+    if (isCTCMode){
     // Compare Match A (v CTC režimu funguje jako overflow)
-    if ((AVRSim::TIFR1 & (1 << AVRSim::OCF1A)) && 
-        (AVRSim::TIMSK1 & (1 << AVRSim::OCIE1A))) {
-        AVRSim::TIFR1 &= ~(1 << AVRSim::OCF1A);  // Clear flag
-        
-        // V CTC režimu voláme overflow_ISR_ při Compare Match A
-        if (overflow_ISR_) {
-            overflow_ISR_();
+        if ((AVRSim::TIFR1 & (1 << AVRSim::OCF1A)) && 
+            (AVRSim::TIMSK1 & (1 << AVRSim::OCIE1A))) {
+            AVRSim::TIFR1 &= ~(1 << AVRSim::OCF1A);  // Clear flag
+            
+            // V CTC režimu voláme overflow_ISR_ při Compare Match A
+            if (overflow_ISR_) {
+                overflow_ISR_();
+            }
+            // Note: TCNT1 už je resetovaný v tick()
+    }
+    }else {
+        //::TIFR1 |= (1 << AVRSim::TOV1);
+        if ((AVRSim::TIFR1 & (1 << AVRSim::OCF1A)) && 
+            (AVRSim::TIMSK1 & (1 << AVRSim::OCIE1A))) {
+            AVRSim::TIFR1 &= ~(1 << AVRSim::OCF1A);  // Clear flag
+            
+            // V CTC režimu voláme overflow_ISR_ při Compare Match A
+            if (compareMatchA_ISR_) {
+            //printf("calling match b");
+            compareMatchA_ISR_();
+            }
         }
         // Note: TCNT1 už je resetovaný v tick()
     }
@@ -223,9 +244,9 @@ void AVRTimerSimulator::checkInterrupts() {
     if ((AVRSim::TIFR1 & (1 << AVRSim::TOV1)) && 
         (AVRSim::TIMSK1 & (1 << AVRSim::TOIE1))) {
         AVRSim::TIFR1 &= ~(1 << AVRSim::TOV1);  // Clear flag
-        //if (overflow_ISR_) {
-            //overflow_ISR_();
-        //}
+        if (!isCTCMode && overflow_ISR_) {
+            overflow_ISR_();
+        }
     }
 }
 
