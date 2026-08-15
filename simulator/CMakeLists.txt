@@ -25,11 +25,16 @@ set(MOTOR_CONTROL_SOURCES
 )
 
 # Zdrojové soubory pro stepper motor control
-set(STEPPER_CONTROL_SOURCES
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src/step_control.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src/step_timer_control.cpp
+set(STEPPER_C_CONTROL_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/stepc_control.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/stepc_timer_control.cpp
 )
 
+# Zdrojové soubory pro stepper motor control
+set(STEPPER_P_CONTROL_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/stepp_control.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/stepp_timer_control.cpp
+)
 # Vytvoření knihovny simulátoru
 add_library(avr_simulator STATIC ${SIMULATOR_SOURCES})
 
@@ -90,19 +95,35 @@ target_compile_options(motor_scenario_test PRIVATE
 )
 
 # Vytvoření testu pro stepper motory
-add_executable(stepper_test
+add_executable(stepper_c_test
     ${CMAKE_CURRENT_SOURCE_DIR}/test_stepper.cpp
-    ${STEPPER_CONTROL_SOURCES}
+    ${STEPPER_C_CONTROL_SOURCES}
 )
 
-target_link_libraries(stepper_test avr_simulator)
+# Vytvoření testu pro stepper motory
+add_executable(stepper_p_test
+    ${CMAKE_CURRENT_SOURCE_DIR}/test_stepper_p.cpp
+    ${STEPPER_P_CONTROL_SOURCES}
+)
 
-target_compile_definitions(stepper_test PRIVATE 
+target_link_libraries(stepper_p_test avr_simulator)
+target_link_libraries(stepper_c_test avr_simulator)
+
+target_compile_definitions(stepper_c_test PRIVATE 
+    SIMULATION_MODE=1
+    F_CPU=16000000UL
+)
+target_compile_definitions(stepper_p_test PRIVATE 
     SIMULATION_MODE=1
     F_CPU=16000000UL
 )
 
-target_compile_options(stepper_test PRIVATE 
+target_compile_options(stepper_c_test PRIVATE 
+    -DAVR_MOCK
+    -Wno-unused-variable
+)
+
+target_compile_options(stepper_p_test PRIVATE 
     -DAVR_MOCK
     -Wno-unused-variable
 )
@@ -126,9 +147,9 @@ add_custom_target(run_scenario_test
     COMMENT "Running motor scenario tests (servo, DC, stepper)"
 )
 
-add_custom_target(run_stepper_test
-    COMMAND stepper_test
-    DEPENDS stepper_test
+add_custom_target(run_p_stepper_test
+    COMMAND stepper_p_test
+    DEPENDS stepper_p_test
     COMMENT "Running stepper motor test"
 )
 

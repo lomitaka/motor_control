@@ -38,7 +38,7 @@ bool StepCTimerControl::isInitialized() {
 // Timer1 Compare Match A ISR - calls stepper motor handler
 #ifdef SIMULATION_MODE
 ISR(TIMER1_COMPA_vect) {
-    OnTimer1StepperISR();
+    OnTimer1StepperContinuousISR();
 }
 #else
 ISR(TIMER1_COMPA_vect) {

@@ -69,7 +69,6 @@ public:
     /**
      * @brief Set target amount of ticks to perform
      * @param steps          Number of steps to move
-     *                      - Range: -16000 to +16000 steps (clamped automatically)
      *                      - Positive values: clockwise rotation
      *                      - Negative values: counter-clockwise rotation
      *                      - Zero: smooth stop (with deceleration)
