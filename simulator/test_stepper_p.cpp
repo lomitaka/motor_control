@@ -18,15 +18,15 @@
  * 4. Direction changes
  */
 
+
 void test_single_stepper_speeds(AVRTimerSimulator * sim) {
     
     std::cout << "\n=== Test 1: Single Stepper - Various Speeds ===" << std::endl;
     
     // Create stepper: STEP=pin 2, DIR=pin 3
     StepperPositioning motor1(2, 3);
-    motor1.setAcceleration(500); // 500 steps/s² acceleration
-    motor1.setSpeed(500); // 500 steps/s² acceleration
-    
+    motor1.setAcceleration(100); // 500 steps/s² acceleration
+    motor1.setSpeed(800); // 500 steps/s² acceleration
     sim->configurePin(2, MotorType::STEPPER);
     sim->configurePin(3, MotorType::NONE);
     
@@ -56,12 +56,12 @@ void test_single_stepper_speeds(AVRTimerSimulator * sim) {
     std::cout << "\nSetting speed: 3000 steps/s" << std::endl;
 
     motor1.setTargetTicks(500) ;
-    sim->simulate(2); // 2 seconds
+    sim->simulate(0.05); // 2 seconds
     
     //motor1.setTargetSpeed(3000);
-    motor1.setTargetTicks(3000);
+    //motor1.setTargetTicks(3000);
     
-    sim->simulate(2); // 2 seconds
+    //sim->simulate(2); // 2 seconds
     //std::cout << "Current speed: " << motor1.getCurrentSpeed() << " steps/s" << std::endl;
     
     
@@ -209,6 +209,29 @@ void test_immediate_speed() {
 void OnTimer1StepperPositioningOverflow();
 void OnTimer1StepperPositioningOCRA();
 void OnTimer1StepperPositioningOCRB();
+void OnLoggerCalled();
+DebugInfo GetDebugInfo();
+
+std::ofstream logFile2_;
+void openLogger(std::string logfile){
+    logFile2_.open(logfile);
+    if (!logFile2_.is_open()) {
+        std::cerr << "Failed to open log file: " << logfile << std::endl;
+    }
+    logFile2_ << "current,target,remaining\n";
+}
+
+void destroyLogger(){
+    logFile2_.close();
+}
+
+void logDebugInfo(){
+    DebugInfo di = GetDebugInfo();
+    logFile2_ << di.current_interval << ",";
+    logFile2_ << di.target_interval << ",";
+    logFile2_ << di.remainining_interval << '\n';
+}
+
 
 int main() {
     
@@ -219,19 +242,21 @@ int main() {
         
     // Vytvoření simulátoru
     AVRTimerSimulator simulator("motor_simulation.log");
-    
+    openLogger("motor_logs.log");
     // Registrace ISR callbacků
     //simulator.registerCompareMatchB_ISR(onCompareMatch);
     simulator.registerOverflow_ISR(OnTimer1StepperPositioningOverflow);
     simulator.registerCompareMatchA_ISR(OnTimer1StepperPositioningOCRA);
     simulator.registerCompareMatchB_ISR(OnTimer1StepperPositioningOCRB);
-
+    simulator.registerDebugLog(logDebugInfo);
     
+    
+
     test_single_stepper_speeds(&simulator);
     //test_multiple_steppers();
     //test_direction_changes();
     //test_immediate_speed();
-    
+    destroyLogger();
     
     std::cout << "\n========================================" << std::endl;
     std::cout << "All tests completed!" << std::endl;

@@ -53,6 +53,7 @@ AVRTimerSimulator::AVRTimerSimulator(const std::string& logFile)
         std::cerr << "Failed to open log file: " << logFile << std::endl;
     }
     
+
     // Otevření samostatného logu pro zatížení motorů
     std::string loadLogName = logFile.substr(0, logFile.find_last_of('.')) + "_load.log";
     loadLogFile_.open(loadLogName);
@@ -90,6 +91,10 @@ void AVRTimerSimulator::registerOverflow_ISR(std::function<void()> callback) {
 
 void AVRTimerSimulator::registerCompareMatchB_ISR(std::function<void()> callback) {
     compareMatchB_ISR_ = callback;
+}
+
+void AVRTimerSimulator::registerDebugLog(std::function<void()> callback) {
+    debugLog_ = callback;
 }
 
 void AVRTimerSimulator::setCPUFrequency(uint32_t freq_hz) {
@@ -156,6 +161,9 @@ void AVRTimerSimulator::tick() {
     
     // Kontrola přerušení
     checkInterrupts();
+
+    debugLog_();
+    
     
     // Detekce změn pinů
     if (AVRSim::PORTB != prevPORTB_) {
@@ -246,6 +254,7 @@ void AVRTimerSimulator::checkInterrupts() {
         AVRSim::TIFR1 &= ~(1 << AVRSim::TOV1);  // Clear flag
         if (!isCTCMode && overflow_ISR_) {
             overflow_ISR_();
+            //debugLog_();
         }
     }
 }
@@ -282,6 +291,9 @@ void AVRTimerSimulator::logTimerState() {
              << ", OCR1B=" << AVRSim::OCR1B;
     logFile_ << std::endl;
 }
+
+
+
 
 void AVRTimerSimulator::simulate(double duration_seconds, double timestep_us) {
     uint64_t totalCycles = (uint64_t)(duration_seconds * cpuFrequency_);

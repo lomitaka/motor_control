@@ -16,7 +16,7 @@ void SteppTimerControl::Timer1_Init() {
     TCNT1 = 0;
     
     // Set initial compare values
-    OCR1A = 64000;  // Initial value (will be updated dynamically)
+    OCR1A = 65535;  // Initial value (will be updated dynamically)
     OCR1B = 65535;  // Initial value (will be updated dynamically)
     
     // Enable Timer1 Compare Match A, B, and Overflow interrupts

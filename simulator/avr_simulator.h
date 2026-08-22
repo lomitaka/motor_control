@@ -93,6 +93,7 @@ public:
     void registerCompareMatchA_ISR(std::function<void()> callback);
     void registerOverflow_ISR(std::function<void()> callback);
     void registerCompareMatchB_ISR(std::function<void()> callback);
+    void registerDebugLog(std::function<void()> callback);
     
     // Simulace časování
     void simulate(double duration_seconds, double timestep_us = 62.5);
@@ -106,6 +107,7 @@ public:
     // Logování
     void logPinChange(char port, uint8_t pin, bool state);
     void logTimerState();
+    void logValues();
     void logMotorLoads();  // Logování zatížení všech motorů
     
 private:
@@ -140,6 +142,7 @@ private:
     std::function<void()> compareMatchA_ISR_;
     std::function<void()> overflow_ISR_;
     std::function<void()> compareMatchB_ISR_;
+    std::function<void()> debugLog_;
     
     bool interruptsEnabled_;
 };

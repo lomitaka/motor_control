@@ -41,8 +41,11 @@ volatile uint8_t StepperPositioning::dir_pins_[MAX_STEPPERS] = {0, 0, 0, 0, 0};
 volatile int16_t StepperPositioning::current_speeds_[MAX_STEPPERS] = {0, 0, 0, 0, 0};
 volatile int16_t StepperPositioning::target_speeds_[MAX_STEPPERS] = {200, 200, 200, 200, 200};
 
+#define STOP 255
+#define SLOW 245
+
 struct Interval {
-    uint8_t skip_count;
+    uint8_t skip_count;//255 for full stop
     uint16_t remainder;
 
     // Elegantnější cesta: Přetížení operátoru <
@@ -96,22 +99,28 @@ struct Interval {
 
 };
 
-void addToInterval(volatile Interval & i, int16_t value){
-    if (value > 0){
+void addToInterval(volatile Interval & i, volatile Interval & val, bool subtract){
+    if ((i.skip_count == STOP) && (subtract) ) { i.skip_count = SLOW; } 
+    if ((i.skip_count != STOP) && ( i.skip_count >= SLOW) && (!subtract )) { i.skip_count = STOP; return; } 
+    //add
+    if (!subtract){
         uint16_t remainder_old = i.remainder;
-        i.remainder = remainder_old + value;
+        i.remainder = remainder_old + val.remainder;
         if (i.remainder < remainder_old && i.skip_count){
             i.skip_count++;
         }
+        i.skip_count = i.skip_count + val.skip_count;
+        //subtract
     }else {
         uint16_t remainder_old = i.remainder;
-        i.remainder = remainder_old - value;
+        i.remainder = remainder_old - val.remainder;
         if (i.remainder > remainder_old && i.skip_count == 0){
             i.remainder = 0;
             i.skip_count = 0;
         } else {
             i.skip_count--;
         }
+        i.skip_count = min(i.skip_count,val.skip_count);
     }
 }
 
@@ -125,7 +134,7 @@ namespace {
     volatile Interval remaining[5] = { {0,0},{0,0},{0,0},{0,0},{0,0} };
 
     //length of the current interval - current length of the interval for next remaining update.
-    volatile Interval current[5] = { {0,0},{0,0},{0,0},{0,0},{0,0} };
+    volatile Interval current[5] = { {255,0},{255,0},{255,0},{255,0},{255,0} };
     
     //length of the interval that is wished to achieve
     volatile Interval target[5] = { {0,0},{0,0},{0,0},{0,0},{0,0} };
@@ -140,10 +149,11 @@ namespace {
     
     // Acceleration
     volatile uint16_t acceleration_rates[5] = {500, 500, 500, 500, 500}; // steps/s²
-    volatile uint16_t speed_changes[5] = {1, 1, 1, 1, 1};        // Pre-calculated speed change per accel cycle (avoids ISR division!)
+    volatile Interval interval_changes[5] = {{STOP,0},{STOP,0}, {STOP,0}, {STOP,0}, {STOP,0}};        // Pre-calculated speed change per accel cycle (avoids ISR division!)
     
     // Step pulse tracking
     volatile uint8_t step_pins_high_mask = 0;  // Bitmask: which motors need falling edge
+    volatile bool event_presnet = false;  // if in current windows is planned any event
 }
 
 // Default constructor
@@ -320,9 +330,9 @@ void StepperPositioning::updateStepInterval() {
     
     if (speed == 0) {
         cli();
-        //step_interval_ticks[motor_index_] = 16000; // Very slow (1 kHz)
+        //sets skip count for 255 > very high, (interpreted as stop)
         target[motor_index_].remainder = 0;
-        target[motor_index_].skip_count = 0;
+        target[motor_index_].skip_count = STOP;
         sei();
         return;
     }
@@ -336,11 +346,15 @@ void StepperPositioning::updateStepInterval() {
     if (interval < 100) interval = 100; // Safety: min 100 ticks (6.25μs)
     // Note: interval can be > 65535 (e.g., for very slow speeds)
     
+    
     cli();
     //step_interval_ticks[motor_index_] = interval;
     
-    target[motor_index_].skip_count = interval / 65536;
-    target[motor_index_].remainder = interval % 65536;
+    target[motor_index_].skip_count = interval / 65535;
+    target[motor_index_].remainder = interval % 65535;
+
+    //remaining[motor_index_].remainder = mabs(target[motor_index_].remainder -  current[motor_index_].remainder)/250;
+    //current[motor_index_].remainder = mabs(target[motor_index_].remainder -  current[motor_index_].remainder)/250;
     sei();
 }
 
@@ -362,12 +376,18 @@ void StepperPositioning::updateAccelerationRate() {
     //              = acceleration × 4096 / 1000000
     
     uint32_t accel = acceleration_;
-    uint16_t speed_change = (accel * 4096) / 1000000;
+    //uint16_t speed_change = (accel * 4096) / 1000000;
+    int16_t cs =current_speeds_[motor_index_]; // steps per second
+    if (cs == 0) {cs = 1;}
+    int16_t sc = mabs(target_speeds_[motor_index_] - cs); //speed change
+    int32_t interval_change = (TICKS_PER_SECOND * accel) / (cs*cs+cs*accel);
     
-    if (speed_change == 0) speed_change = 1; // Minimum change of 1 step/s
-    
+    //if (speed_change == 0) speed_change = 1; // Minimum change of 1 step/s
+    Interval i;
+    i.skip_count = interval_change / 65536;
+    i.remainder = interval_change % 65536;
     cli();
-    speed_changes[motor_index_] = speed_change;
+    interval_changes[motor_index_] = i;
     sei();
 }
 
@@ -406,10 +426,11 @@ void StepperPositioning::updateBrakingDistance() {
 void OnTimer1StepperPositioningOverflow(){
 
     uint16_t next_event = 65535; // Max value
+    event_presnet = false;
 
     for (uint8_t i = 0; i < StepperPositioning::stepper_count_; i++) {
         // Decrement overflow skip counter
-        if (remaining[i].skip_count > 0) {
+        if (remaining[i].skip_count != STOP && remaining[i].skip_count != 0) {
             remaining[i].skip_count--;
         }
         
@@ -421,33 +442,32 @@ void OnTimer1StepperPositioningOverflow(){
         
         // Check if we need to start braking
         int16_t abs_remaining = (remaining_t < 0) ? -remaining_t : remaining_t;
-        if (abs_remaining <= brake_dist && remaining != 0) {
+        if (abs_remaining <= brake_dist) {
             // Start deceleration (pick next target that is stop)
             target[i].remainder = 0;
-            target[i].skip_count = 0;
+            target[i].skip_count = STOP;
         }
         
         // Accelerate/decelerate
         //if (current != target) {
         if (current[i] != target[i]){
-            const int16_t change = speed_changes[i];
+            volatile Interval & change = interval_changes[i];
             
-            
+            addToInterval(current[i],change, current[i] > target[i]);
             if (current[i] < target[i]) {
-                addToInterval(current[i],change);
                 if (current[i] > target[i]) current[i] = target[i];
             } else {
-                addToInterval(current[i],change);
                 if (current[i] < target[i]) current[i] = target[i];
             }
         
         }
 
-        //Is ith counter enabled?
-        if (current[i].remainder != 0 || current[i].skip_count == 0 ) {
+        //is timer enabled?
+        if (current[i].skip_count != STOP ) {
             //Take nearest event
-            if (remaining->skip_count == 0 && remaining[i].remainder < next_event) {
+            if (remaining[i].skip_count == 0 && remaining[i].remainder < next_event) {
                 next_event = remaining[i].remainder;
+                event_presnet = true;
             }
         }
     }
@@ -455,7 +475,7 @@ void OnTimer1StepperPositioningOverflow(){
 
     uint16_t current_time = TCNT1;
             // Schedule next OCRA
-    if (next_event < 65535) {//TODO FIX
+    if (event_presnet) {//TODO FIX
         uint16_t safe_next = (next_event > current_time) ? (next_event - current_time) : TIMER_GUARD_TICKS;
         if (safe_next < TIMER_GUARD_TICKS) safe_next = TIMER_GUARD_TICKS;
         OCR1A = current_time + safe_next;
@@ -475,6 +495,7 @@ void OnTimer1StepperPositioningOverflow(){
  * Uses 16-bit arithmetic only for speed on 8-bit AVR.
  */
 void OnTimer1StepperPositioningOCRA() {
+    if (!event_presnet) {return;}
     uint16_t current_time = TCNT1;
     uint16_t next_event = 65535; // Max value
     step_pins_high_mask = 0;
@@ -499,7 +520,7 @@ void OnTimer1StepperPositioningOCRA() {
                 }
                 
                 remaining[i].skip_count = current[i].skip_count;
-                remaining[i].remainder =  remaining[i].remainder+ current[i].skip_count;
+                remaining[i].remainder =  remaining[i].remainder+ current[i].remainder;
                 // Calculate next step time: split interval into overflow count and tick count
                 //uint32_t interval = step_interval_ticks[i];
                 //overflow_skip_count[i] = interval / 65536;  // Integer division
@@ -551,4 +572,33 @@ void OnTimer1StepperPositioningOCRB() {
         }
     }
     step_pins_high_mask = 0;
+}
+
+
+DebugInfo GetDebugInfo(){
+
+  /*  volatile Interval remaining[5] = { {0,0},{0,0},{0,0},{0,0},{0,0} };
+
+    //length of the current interval - current length of the interval for next remaining update.
+    volatile Interval current[5] = { {255,0},{255,0},{255,0},{255,0},{255,0} };
+    
+    //length of the interval that is wished to achieve
+    volatile Interval target[5] = { {0,0},{0,0},{0,0},{0,0},{0,0} };
+    
+
+    volatile int16_t braking_distance[5] = {0, 0, 0, 0, 0};    // Steps needed to stop
+    
+    // Timing (split to avoid 32-bit arithmetic)
+    
+    volatile uint16_t next_tick_count[5] = {0, 0, 0, 0, 0};     // T*/
+
+
+DebugInfo di;
+di.remainining_interval = remaining[0].skip_count * 65536 + remaining[0].remainder;
+di.current_interval = current[0].skip_count * 65536 + current[0].remainder;
+di.target_interval = target[0].skip_count * 65536 + target[0].remainder;
+return di;
+//volatile int16_t StepperPositioning::current_speeds_[MAX_STEPPERS] = {0, 0, 0, 0, 0};
+//volatile int16_t StepperPositioning::target_speeds_[MAX_STEPPERS] = {200, 200, 200, 200, 200};
+
 }

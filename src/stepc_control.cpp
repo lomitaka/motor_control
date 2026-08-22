@@ -56,7 +56,7 @@ namespace {
     volatile uint16_t acceleration_rates[5] = {500, 500, 500, 500, 500};     // steps/s²
     volatile uint8_t accel_counter[5] = {0, 0, 0, 0, 0};                 // Counter for acceleration updates
     volatile bool step_pin_high[5] = {false, false, false, false, false}; // Tracks which pins are HIGH
-    volatile uint16_t speed_changes[5] = {5, 5, 5, 5, 5};               // Pre-calculated speed change per accel cycle (avoids ISR division!)
+    volatile uint16_t interval_changes[5] = {5, 5, 5, 5, 5};               // Pre-calculated speed change per accel cycle (avoids ISR division!)
 }
 
 // Default constructor
@@ -213,7 +213,7 @@ void StepperContinuous::updateAccelerationRate() {
     if (speed_change == 0) speed_change = 1; // Minimum change of 1 step/s
     
     cli();
-    speed_changes[motor_index_] = speed_change;
+    interval_changes[motor_index_] = speed_change;
     sei();
 }
 
@@ -268,7 +268,7 @@ void OnTimer1StepperContinuousISR() {
             
             if (current != target) {
                 // Use pre-calculated speed change (NO division in ISR!)
-                uint16_t speed_change = speed_changes[i];
+                uint16_t speed_change = interval_changes[i];
                 
                 // Move towards target
                 if (current < target) {

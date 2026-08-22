@@ -31,6 +31,7 @@
 
 #include <stdint.h>
 #include "motor.h"
+#include "debug.h"
 
 /**
  * @brief Stepper motor controller for precise positioning
@@ -106,8 +107,9 @@ public:
     /**
      * @brief Set acceleration/deceleration rate
      * @param steps_per_sec2 Acceleration in steps per second squared
-     *                        Typical values: 100-1000 for smooth operation
+     *                        Typical values: 100-10.000 for smooth operation
      *                        Higher = faster speed changes, but may cause skipped steps
+     *                        Min accepted value is 100
      * 
      * Automatically recalculates braking distance when changed.
      */
@@ -167,6 +169,7 @@ private:
     friend void OnTimer1StepperPositioningOverflow();
     friend void OnTimer1StepperPositioningOCRA();
     friend void OnTimer1StepperPositioningOCRB();
+    friend DebugInfo GetDebugInfo();
 };
 
 #endif // STEPPER_POSITIONING_H

@@ -8,6 +8,7 @@
 #endif
 
 #include <stdint.h>
+#include "motor_control/debug.h"
 
 /**
  * @brief Timer1 control for stepper positioning motors (no prescaler)
@@ -55,4 +56,5 @@ void OnTimer1StepperPositioningOverflow();
 void OnTimer1StepperPositioningOCRA();
 void OnTimer1StepperPositioningOCRB();
 
+DebugInfo GetDebugInfo();
 #endif // STEPP_TIMER_CONTROL_H
