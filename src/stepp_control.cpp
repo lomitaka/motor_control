@@ -38,7 +38,7 @@ constexpr uint32_t TICKS_PER_SECOND = 16000000; // 16 MHz
 volatile uint8_t StepperPositioning::stepper_count_ = 0;
 volatile uint8_t StepperPositioning::step_pins_[MAX_STEPPERS] = {0, 0, 0, 0, 0};
 volatile uint8_t StepperPositioning::dir_pins_[MAX_STEPPERS] = {0, 0, 0, 0, 0};
-volatile int16_t StepperPositioning::current_speeds_[MAX_STEPPERS] = {0, 0, 0, 0, 0};
+volatile int16_t StepperPositioning::current_speeds_[MAX_STEPPERS] = {0, 0, 0, 0, 0};//steps per second
 volatile int16_t StepperPositioning::target_speeds_[MAX_STEPPERS] = {200, 200, 200, 200, 200};
 
 #define STOP 255
@@ -100,13 +100,14 @@ struct Interval {
 };
 
 
-void addToInterval2(volatile Interval & target, volatile Interval & new_current){
-    
+void addToInterval2(volatile Interval & target, volatile Interval & new_current, uint8_t modifier){
+    //modifier -number from 1-10 for more aggresive interval update
+
     if (target > new_current){
         //need to add to new_current
         uint32_t new_curr = ((uint32_t)new_current.skip_count << 16) + new_current.remainder;
         //add 8 percent of new_current to new_curr
-        new_curr = new_curr + (new_curr >> 3);
+        new_curr = new_curr + modifier*(new_curr >> 3);
         //handle top (converts it into stop)
         if (new_curr > (SLOW << 16)) {new_curr = (STOP << 16);}
         new_current.remainder = new_curr & 0xFFFF;
@@ -120,7 +121,7 @@ void addToInterval2(volatile Interval & target, volatile Interval & new_current)
         uint32_t new_curr = ((uint32_t)new_current.skip_count << 16) + new_current.remainder;
         //add 8 percent of new_current to new_curr
         
-        new_curr = new_curr - (new_curr >> 3);
+        new_curr = new_curr - modifier*(new_curr >> 3);
         //lower protectin
         if (new_curr < 200) {new_curr = 200;}
         new_current.remainder = new_curr & 0xFFFF;
@@ -134,51 +135,9 @@ void addToInterval2(volatile Interval & target, volatile Interval & new_current)
 
 
 
-
-void modifyIntervalWithOrder(volatile Interval & target, volatile Interval & new_current, int8_t diff){
-    //diff - from old order to new order  = target_order- current_order
-    if (diff > 0){
-        new_current.skip_count = target.skip_count >> (diff);
-        new_current.remainder = (target.skip_count >> (diff)) +  (target.remainder >> (diff));
-    }else if (diff < 0){
-        //need current make bigger than target
-        new_current.skip_count = (target.skip_count << -diff) + (target.remainder >>  (16+diff));
-        new_current.remainder = target.remainder << -diff;
-    }
-}
-
-
-void addToInterval(volatile Interval & i, volatile Interval & val, bool subtract){
-    if ((i.skip_count == STOP) && (subtract) ) { i.skip_count = SLOW; } 
-    if ((i.skip_count != STOP) && ( i.skip_count >= SLOW) && (!subtract )) { i.skip_count = STOP; return; } 
-    //add
-    if (!subtract){
-        uint16_t remainder_old = i.remainder;
-        i.remainder = remainder_old + val.remainder;
-        if (i.remainder < remainder_old && i.skip_count){
-            i.skip_count++;
-        }
-        i.skip_count = i.skip_count + val.skip_count;
-        //subtract
-    }else {
-        uint16_t remainder_old = i.remainder;
-        i.remainder = remainder_old - val.remainder;
-        if (i.remainder > remainder_old && i.skip_count == 0){
-            i.remainder = 0;
-            i.skip_count = 0;
-        } else {
-            i.skip_count--;
-        }
-        i.skip_count = min(i.skip_count,val.skip_count);
-    }
-}
-
 // Internal ISR variables
 namespace {
 
-    volatile uint8_t update_rate[5] = {0, 0, 0, 0, 0};      // position of leading bit from current
-    volatile uint8_t current_order[5] = {17, 17, 17, 17, 17};      // position of leading bit from current
-    volatile uint8_t target_order[5] = {0, 0, 0, 0, 0};      // position of leading bit from target
 
     // Position tracking
     volatile int16_t remaining_ticks[5] = {0, 0, 0, 0, 0};      // Remaining steps to target (how many ticks to perform before stop)
@@ -192,17 +151,9 @@ namespace {
     //length of the interval that is wished to achieve
     volatile Interval target[5] = { {0,0},{0,0},{0,0},{0,0},{0,0} };
     
-
+    volatile uint16_t acceleration_mod[5] = {1,1,1,1,1};      ///1-10 adds 8-80 percent to acceleration speed (default 1)
     volatile int16_t braking_distance[5] = {0, 0, 0, 0, 0};    // Steps needed to stop
-    
-    // Timing (split to avoid 32-bit arithmetic)
-    
-    volatile uint16_t next_tick_count[5] = {0, 0, 0, 0, 0};     // Tick value within overflow period for next step
-    //volatile uint32_t step_interval_ticks[5] = {16000, 16000, 16000, 16000, 16000}; // Full interval between steps (for recalculation)
-    
-    // Acceleration
-    volatile uint16_t acceleration_rates[5] = {500, 500, 500, 500, 500}; // steps/s²
-    volatile Interval interval_changes[5] = {{STOP,0},{STOP,0}, {STOP,0}, {STOP,0}, {STOP,0}};        // Pre-calculated speed change per accel cycle (avoids ISR division!)
+
     
     // Step pulse tracking
     volatile uint8_t step_pins_high_mask = 0;  // Bitmask: which motors need falling edge
@@ -212,15 +163,13 @@ namespace {
 // Default constructor
 StepperPositioning::StepperPositioning() 
     : step_pin_(0), dir_pin_(0),
-      current_speed_sps_(0), target_speed_sps_(0), acceleration_(500),
-      motor_index_(255) {
+      current_speed_sps_(0), target_speed_sps_(0), motor_index_(255) {
 }
 
 // Constructor with initialization
 StepperPositioning::StepperPositioning(uint8_t step_pin, uint8_t dir_pin)
     : step_pin_(step_pin), dir_pin_(dir_pin),
-      current_speed_sps_(0), target_speed_sps_(0), acceleration_(500),
-      motor_index_(255) {
+      current_speed_sps_(0), target_speed_sps_(0), motor_index_(255) {
     init(step_pin, dir_pin);
 }
 
@@ -248,9 +197,6 @@ uint8_t StepperPositioning::init(uint8_t step_pin, uint8_t dir_pin) {
     target_speeds_[motor_index_] = 0;
     remaining_ticks[motor_index_] = 0;
     braking_distance[motor_index_] = 0;
-    //overflow_skip_count[motor_index_] = 0;        // No overflow skip initially
-    next_tick_count[motor_index_] = TCNT1 + 10000; // Start in future
-    //step_interval_ticks[motor_index_] = 16000;    // 1 kHz initial
     sei();
     
     // Initialize timer if not already done
@@ -333,12 +279,14 @@ uint8_t StepperPositioning::addTargetTicks(int16_t steps) {
 
 }
 
-void StepperPositioning::setAcceleration(uint16_t percent, uint8_t rate) {
-    acceleration_ = percent;
+void StepperPositioning::setAcceleration(uint8_t percent_increase) {
+    if (percent_increase < 1) {percent_increase = 1;}
+    if (percent_increase > 10) {percent_increase = 10;}
+    
     cli();
-    acceleration_rates[motor_index_] = 0;//steps_per_sec2;
+    acceleration_mod[motor_index_] = percent_increase;
     sei();
-    updateAccelerationRate();
+    //updateAccelerationRate();
     updateBrakingDistance();
 }
 
@@ -408,7 +356,6 @@ void StepperPositioning::updateStepInterval() {
     
     cli();
     //step_interval_ticks[motor_index_] = interval;
-    target_order[motor_index_] = order;
     target[motor_index_].skip_count = interval / 65535;
     target[motor_index_].remainder = interval % 65535;
 
@@ -433,21 +380,8 @@ void StepperPositioning::updateAccelerationRate() {
     // This avoids expensive multiplication in ISR!
     // speed_change = acceleration × 0.004096s
     //              = acceleration × 4096 / 1000000
-    
-    uint32_t accel = acceleration_;
-    //uint16_t speed_change = (accel * 4096) / 1000000;
-    int16_t cs =current_speeds_[motor_index_]; // steps per second
-    if (cs == 0) {cs = 1;}
-    int16_t sc = mabs(target_speeds_[motor_index_] - cs); //speed change
-    int32_t interval_change = (TICKS_PER_SECOND * accel) / (cs*cs+cs*accel);
-    
-    //if (speed_change == 0) speed_change = 1; // Minimum change of 1 step/s
-    Interval i;
-    i.skip_count = interval_change / 65536;
-    i.remainder = interval_change % 65536;
-    cli();
-    interval_changes[motor_index_] = i;
-    sei();
+       
+
 
 }
 
@@ -457,20 +391,20 @@ void StepperPositioning::updateBrakingDistance() {
     // Solving for s: s = v² / (2a)
     
     cli();
-    int16_t speed = current_speeds_[motor_index_];
-    uint16_t accel = acceleration_rates[motor_index_];
+    int16_t speed = target_speeds_[motor_index_];//steps per second. 
     sei();
     
-    if (accel == 0) accel = 1;
     
     uint16_t abs_speed = (speed < 0) ? -speed : speed;
     
-    // braking_distance = speed² / (2 × acceleration)
-    uint32_t speed_squared = (uint32_t)abs_speed * abs_speed;
-    uint16_t brake_dist = speed_squared / (2 * accel);
-    
+    //assuming: decrease takes 11 overflows (each overflow decreases speed atleast by 10%)
+    //16000000/65536 = 244 overflows per sec
+    //need ticks equivalent of 11 overflows.   (abs_speed/244 ~ ticks_per_overflow) * 11 = amount of ticks to stop.
+    uint16_t requiredticks = abs_speed*51/244;//?? zde evidentne jsem se velmi sekl... proc?
+
+         
     cli();
-    braking_distance[motor_index_] = brake_dist;
+    braking_distance[motor_index_] = requiredticks;
     sei();
 }
 
@@ -508,31 +442,9 @@ void OnTimer1StepperPositioningOverflow(){
             target[i].skip_count = STOP;
         }
         if (current[i] != target[i]){
-            addToInterval2(target[i],current[i]);
+            addToInterval2(target[i],current[i],acceleration_mod[i]);
         }
-        /*if (current_order[i] != target_order[i]){
-            if (current_order[i] > target_order[i]){
-                current_order[i]--;
-                
-                modifyIntervalWithOrder(target[i],current[i],target_order[i] - current_order[i]);
-                modifyIntervalWithOrder(target[i],current[i],target_order[i] - current_order[i]);
-            }else {
-            
-                current_order[i]++;
-            }
-            
-        }*/
         
-        // Accelerate/decelerate
-        //if (current != target) {
-        if (current_order[i] == target_order[i] && current[i] != target[i]){
-            //volatile Interval & change = interval_changes[i];
-            
-            current[i] = target[i];        
-        }
-
-        //if remaining does not catchesup with udpate (current).. set remainin to current.
-        //if (remaining[i] > current[i]){ remaining[i] = current[i];}
 
         //is timer enabled?
         if (current[i].skip_count != STOP ) {
@@ -685,9 +597,6 @@ di.target_interval = target[0].skip_count * 65536 + target[0].remainder;
 if (target[0].skip_count == STOP){
     di.target_interval = -1;
 }
-
-di.tar_rate = target_order[0];
-di.curr_rate = current_order[0];
 
 return di;
 //volatile int16_t StepperPositioning::current_speeds_[MAX_STEPPERS] = {0, 0, 0, 0, 0};

@@ -106,12 +106,11 @@ public:
     
     /**
      * @brief Set acceleration/deceleration rate
-     * @param duration_ms Time expected to reach target value
-     * @param rate in range 1-24. Further increases steepness
+     * @param percent_increase speed change in percents. (valid values 1-100)
      * 
      * Automatically recalculates braking distance when changed.
      */
-    void setAcceleration(uint16_t duration_ms, uint8_t rate=1);
+    void setAcceleration(uint8_t percent_increase);
     
     /**
      * @brief Set steps immediately without acceleration ramp
@@ -144,7 +143,6 @@ private:
     // Speed control
     int16_t current_speed_sps_;  ///< Current speed in steps/s
     int16_t target_speed_sps_;   ///< Target speed in steps/s
-    uint16_t acceleration_;      ///< Steps per second squared
     
     // Status
     uint8_t motor_index_;        ///< Index in internal motor arrays

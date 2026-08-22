@@ -25,7 +25,7 @@ void test_single_stepper_speeds(AVRTimerSimulator * sim) {
     
     // Create stepper: STEP=pin 2, DIR=pin 3
     StepperPositioning motor1(2, 3);
-    motor1.setAcceleration(100); // 500 steps/s² acceleration
+    motor1.setAcceleration(1); // 500 steps/s² acceleration
     motor1.setSpeed(500); // 500 steps/s² acceleration
     sim->configurePin(2, MotorType::STEPPER);
     sim->configurePin(3, MotorType::NONE);
@@ -226,7 +226,7 @@ void destroyLogger(){
 }
 
 uint32_t hash = 0;
-DebugInfo di_old  = {0,0,0,0,0};
+DebugInfo di_old  = {0,0,0};
 void logDebugInfo(uint32_t time_us){
     DebugInfo di = GetDebugInfo();
     
