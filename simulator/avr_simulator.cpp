@@ -93,7 +93,7 @@ void AVRTimerSimulator::registerCompareMatchB_ISR(std::function<void()> callback
     compareMatchB_ISR_ = callback;
 }
 
-void AVRTimerSimulator::registerDebugLog(std::function<void()> callback) {
+void AVRTimerSimulator::registerDebugLog(std::function<void(uint32_t)> callback) {
     debugLog_ = callback;
 }
 
@@ -114,6 +114,7 @@ uint16_t AVRTimerSimulator::getPrescaler() {
     }
 }
 
+int debug_mod = 0;
 void AVRTimerSimulator::tick() {
     cycleCount_++;
     
@@ -158,11 +159,17 @@ void AVRTimerSimulator::tick() {
             AVRSim::TIFR1 |= (1 << AVRSim::OCF1B);
         }
     }
+
+    
     
     // Kontrola přerušení
     checkInterrupts();
-
-    debugLog_();
+    //debug logging
+    debug_mod = (debug_mod +1) % 10;
+    if (debug_mod == 0){
+        double time_us = (double)cycleCount_ / cpuFrequency_ * 1000000.0;
+        debugLog_((uint32_t)time_us);
+    }
     
     
     // Detekce změn pinů
@@ -254,7 +261,7 @@ void AVRTimerSimulator::checkInterrupts() {
         AVRSim::TIFR1 &= ~(1 << AVRSim::TOV1);  // Clear flag
         if (!isCTCMode && overflow_ISR_) {
             overflow_ISR_();
-            //debugLog_();
+           //debugLog_();
         }
     }
 }

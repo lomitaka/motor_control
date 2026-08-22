@@ -26,7 +26,7 @@ void test_single_stepper_speeds(AVRTimerSimulator * sim) {
     // Create stepper: STEP=pin 2, DIR=pin 3
     StepperPositioning motor1(2, 3);
     motor1.setAcceleration(100); // 500 steps/s² acceleration
-    motor1.setSpeed(800); // 500 steps/s² acceleration
+    motor1.setSpeed(500); // 500 steps/s² acceleration
     sim->configurePin(2, MotorType::STEPPER);
     sim->configurePin(3, MotorType::NONE);
     
@@ -53,10 +53,10 @@ void test_single_stepper_speeds(AVRTimerSimulator * sim) {
     
     // Test 3000 steps/s for 2 seconds
     
-    std::cout << "\nSetting speed: 3000 steps/s" << std::endl;
+    std::cout << "\nSetting speed: 500 steps/s" << std::endl;
 
     motor1.setTargetTicks(500) ;
-    sim->simulate(0.05); // 2 seconds
+    sim->simulate(2.10); // 2 seconds
     
     //motor1.setTargetSpeed(3000);
     //motor1.setTargetTicks(3000);
@@ -218,18 +218,35 @@ void openLogger(std::string logfile){
     if (!logFile2_.is_open()) {
         std::cerr << "Failed to open log file: " << logfile << std::endl;
     }
-    logFile2_ << "current,target,remaining\n";
+    logFile2_ << "time_us,current,target,remaining\n";
 }
 
 void destroyLogger(){
     logFile2_.close();
 }
 
-void logDebugInfo(){
+uint32_t hash = 0;
+DebugInfo di_old  = {0,0,0,0,0};
+void logDebugInfo(uint32_t time_us){
     DebugInfo di = GetDebugInfo();
+    
+    uint32_t hash2 = di.current_interval xor di.target_interval xor di.remainining_interval;
+    if (hash2 == hash){return;}
+    hash = hash2;
+    
+    logFile2_ << time_us << ",";
+    logFile2_ << di_old.current_interval << ",";
+    logFile2_ << di_old.target_interval << ",";
+    logFile2_ << di_old.remainining_interval << '\n';
+
+    
+    logFile2_ << time_us+1 << ",";
     logFile2_ << di.current_interval << ",";
     logFile2_ << di.target_interval << ",";
     logFile2_ << di.remainining_interval << '\n';
+    
+    di_old = di;
+
 }
 
 

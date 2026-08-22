@@ -106,14 +106,12 @@ public:
     
     /**
      * @brief Set acceleration/deceleration rate
-     * @param steps_per_sec2 Acceleration in steps per second squared
-     *                        Typical values: 100-10.000 for smooth operation
-     *                        Higher = faster speed changes, but may cause skipped steps
-     *                        Min accepted value is 100
+     * @param duration_ms Time expected to reach target value
+     * @param rate in range 1-24. Further increases steepness
      * 
      * Automatically recalculates braking distance when changed.
      */
-    void setAcceleration(uint16_t steps_per_sec2);
+    void setAcceleration(uint16_t duration_ms, uint8_t rate=1);
     
     /**
      * @brief Set steps immediately without acceleration ramp

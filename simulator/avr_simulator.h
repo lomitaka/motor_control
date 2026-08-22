@@ -93,7 +93,7 @@ public:
     void registerCompareMatchA_ISR(std::function<void()> callback);
     void registerOverflow_ISR(std::function<void()> callback);
     void registerCompareMatchB_ISR(std::function<void()> callback);
-    void registerDebugLog(std::function<void()> callback);
+    void registerDebugLog(std::function<void(uint32_t)> callback);
     
     // Simulace časování
     void simulate(double duration_seconds, double timestep_us = 62.5);
@@ -142,7 +142,7 @@ private:
     std::function<void()> compareMatchA_ISR_;
     std::function<void()> overflow_ISR_;
     std::function<void()> compareMatchB_ISR_;
-    std::function<void()> debugLog_;
+    std::function<void(uint32_t)> debugLog_;
     
     bool interruptsEnabled_;
 };
