@@ -17,6 +17,7 @@ void USART_WRITE_S(const char * s);
 
 void USART_WRITE_UINT(unsigned long number);
 void USART_WRITE_INT(int number);
+void USART_WRITE_LLONG(long number);
 void USART_WRITE_FLOAT(float number);
 
 void USART_Transmit(unsigned char data);

@@ -91,7 +91,7 @@ public:
      * positioning. Automatically recalculates braking distance based on this speed.
      * Initial value: 0 steps/s (motor stopped)
      */
-    uint8_t setSpeed(int16_t steps_per_sec);
+    uint8_t setSpeed(uint16_t steps_per_sec);
 
     /**
      * @brief Add steps to current target position
@@ -159,7 +159,7 @@ private:
     volatile static uint8_t step_pins_[MAX_STEPPERS];
     volatile static uint8_t dir_pins_[MAX_STEPPERS];
     volatile static int16_t current_speeds_[MAX_STEPPERS];
-    volatile static int16_t target_speeds_[MAX_STEPPERS];
+    volatile static uint16_t target_speeds_stp_ps_[MAX_STEPPERS];
     
     friend void OnTimer1StepperPositioningOverflow();
     friend void OnTimer1StepperPositioningOCRA();

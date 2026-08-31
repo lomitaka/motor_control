@@ -4,18 +4,37 @@ project(motor_driver_sample C CXX)
 # Nastavte platformu a procesor
 set(MCU atmega328p)
 set(F_CPU 16000000UL)  # Nastavte frekvenci procesoru (zde 16 MHz pro Arduino Uno)
+set(SAMPLE_NO "4" CACHE STRING "Sample to build")
 
 option(TARGET_AVR "Compile for AVR microcontroller" ON)
 
 # Nastavení cest k include adresářům
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
+
+
 # Nastavte zdrojové soubory
 set(SOURCES
-    main.cpp
+    #main.cpp
     usart.cpp
     arduino.cpp
+    ../include/motor_control/debug.h
+    ../include/motor_control/stepper_positioning.h
 )
+
+if("${SAMPLE_NO}" STREQUAL "0")
+    list(APPEND SOURCES main_t0.cpp)
+elseif("${SAMPLE_NO}" STREQUAL "1")
+    list(APPEND SOURCES main_t1.cpp)
+elseif("${SAMPLE_NO}" STREQUAL "2")
+    list(APPEND SOURCES main_t2.cpp)
+elseif("${SAMPLE_NO}" STREQUAL "3")
+    list(APPEND SOURCES main_t3.cpp)
+elseif("${SAMPLE_NO}" STREQUAL "4")
+    list(APPEND SOURCES main_t4.cpp)
+else()
+    message(FATAL_ERROR "Unknown test: ${TEST}")
+endif()
 
 
 # Nastavení kompilátoru na AVR GCC
@@ -55,7 +74,7 @@ if(TARGET_AVR)
     add_executable(line_follower.elf ${SOURCES})
     
     # Linkování motor_control knihovny
-    target_link_libraries(line_follower.elf ${CMAKE_CURRENT_SOURCE_DIR}/libs/libmotor_control_lib.a)
+    target_link_libraries(line_follower.elf ${CMAKE_CURRENT_SOURCE_DIR}/../build/libmotor_control_lib.a)
 
     # Přidejte pravidla pro generování HEX souboru
     add_custom_command(TARGET line_follower.elf POST_BUILD

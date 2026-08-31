@@ -91,7 +91,11 @@ void USART_WRITE_INT(int number){
 	sprintf(str, "%d", number);
 	USART_WRITE_S(str);
 }
-
+void USART_WRITE_LLONG(long number){
+	char str[20]{32,32,32,32,32,32,32,32,32,65};
+	sprintf(str, "%ld", number);
+	USART_WRITE_S(str);
+}
 void USART_WRITE_FLOAT(float number){
 	float n2 = number;
 	if (n2 < 0){
