@@ -20,6 +20,8 @@ set(LIBRARY_SOURCES
     src/arduino.cpp
     src/stepp_control.cpp
     src/stepp_timer_control.cpp
+    src/stepc_control.cpp
+    src/stepc_timer_control.cpp
 )
 
 # Zdrojové soubory pro executable (hlavní program)

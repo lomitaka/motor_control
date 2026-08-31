@@ -30,6 +30,7 @@
 #define STEPPER_POSITIONING_H
 
 #include <stdint.h>
+#include "motor.h"
 #include "debug.h"
 
 /**

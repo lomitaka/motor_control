@@ -2,6 +2,7 @@
 #define DC_CONTROL_H
 
 #include <stdint.h>
+#include "motor.h"
 
 class DCControl {
 public:
@@ -62,17 +63,8 @@ private:
     uint8_t port_pwm_index_;
     uint8_t port_dir_index_;
     //which index from static arrays belongs to this instance
-    int8_t motor_index_;
+    uint8_t motor_index_;
     uint8_t error_code_;
 };
-
-namespace ErrorCodes {
-    enum ErrorCode {
-        NO_ERROR = 0,
-        ERROR_NO_FREE_MOTOR = -1,
-        ERROR_INVALID_PIN = -2,
-        ERROR_INVALID_VALUE = -3
-};
-}
 
 #endif // DC_CONTROL_H

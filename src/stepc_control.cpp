@@ -53,7 +53,6 @@ namespace {
     volatile uint16_t step_intervals[5] = {62500, 62500, 62500, 62500, 62500}; // Interval between steps in ticks (1 Hz initial)
     volatile uint16_t step_remainders[5] = {0, 0, 0, 0, 0}; // Remainder of TICKS_PER_SECOND % speed
     volatile uint16_t step_remainder_cntr[5] = {0, 0, 0, 0, 0}; // has vaule from speed to zero; used to redestribute remainder 
-    volatile uint16_t acceleration_rates[5] = {500, 500, 500, 500, 500};     // steps/s²
     volatile uint8_t accel_counter[5] = {0, 0, 0, 0, 0};                 // Counter for acceleration updates
     volatile bool step_pin_high[5] = {false, false, false, false, false}; // Tracks which pins are HIGH
     volatile uint16_t interval_changes[5] = {5, 5, 5, 5, 5};               // Pre-calculated speed change per accel cycle (avoids ISR division!)
@@ -130,9 +129,6 @@ void StepperContinuous::setTargetSpeed(int16_t steps_per_sec) {
 
 void StepperContinuous::setAcceleration(uint16_t steps_per_sec2) {
     acceleration_ = steps_per_sec2;
-    cli();
-    acceleration_rates[motor_index_] = steps_per_sec2;
-    sei();
     updateAccelerationRate();
 }
 
