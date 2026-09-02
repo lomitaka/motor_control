@@ -101,13 +101,13 @@ struct Interval {
 };
 
 
-void addToInterval2(volatile Interval & target, volatile Interval & new_current, uint8_t modifier){
+void addToInterval(volatile Interval & target, volatile Interval & new_current, uint8_t accel_shif){
     //modifier -number from 1-10 for more aggresive interval update
     if (target > new_current){
         //need to add to new_current
         uint32_t new_curr = ((uint32_t)new_current.skip_count << 16) + new_current.remainder;
         //add 8 percent of new_current to new_curr
-        new_curr = new_curr + (new_curr >> 3);
+        new_curr = new_curr + (new_curr >> accel_shif);
         //handle top (converts it into stop)target_speeds_stp_ps_
         if (new_current.skip_count > VERY_SLOW ) {new_curr = ((uint32_t)VERY_SLOW << 16);}
         new_current.remainder = new_curr & 0xFFFF;
@@ -154,7 +154,7 @@ namespace {
     //length of the interval that is wished to achieve
     volatile Interval target[5] = { {0,0},{0,0},{0,0},{0,0},{0,0} };
     
-    volatile uint16_t acceleration_mod[5] = {1,1,1,1,1};      ///1-10 adds 8-80 percent to acceleration speed (default 1)
+    volatile uint16_t acceleration_shift[5] = {3,3,3,3,3};      ///2-6 adds 50% to 3% percent to acceleration speed (default 3 ~ 12%)
     volatile int16_t braking_distance[5] = {50, 50, 50, 50, 50};    // Steps needed to stop
     volatile uint8_t enabled_mask = false;    // bitmask for enabled motors [lower index - motor 0]
 
@@ -162,9 +162,6 @@ namespace {
     // Step pulse tracking
     volatile uint8_t step_pins_high_mask = 0;  // Bitmask: which motors need falling edge
     volatile bool event_present = false;  // if in current windows is planned any event
-    volatile uint16_t tcnt1a = 0;
-    volatile uint16_t tcnt1b = 0;
-    volatile uint16_t update_no = 0;
 }
 
 #define MOTOR_ENABLED(num)  enabled_mask & (1 << num)
@@ -219,18 +216,9 @@ uint8_t StepperPositioning::init(uint8_t step_pin, uint8_t dir_pin) {
     return 0;
 }
 
-uint8_t StepperPositioning::setTargetTicks(int16_t steps) {   
-    cli();
-    //int16_t current_remaining = remaining_ticks[motor_index_];
-    int16_t brake_dist = braking_distance[motor_index_];
-    sei();
-    
-    // Check if we have enough distance to decelerate
-    int16_t abs_steps = (steps < 0) ? -steps : steps;
-    if (abs_steps < brake_dist) {
-        return 1; // ERROR: Cannot execute with current deceleration
-    }
-    
+void StepperPositioning::setTargetTicks(int16_t steps) {   
+
+        
     // Set new target
     cli();
     remaining_ticks[motor_index_] = steps;
@@ -240,8 +228,7 @@ uint8_t StepperPositioning::setTargetTicks(int16_t steps) {
     //updateDirection();
     updateStepInterval();
     updateBrakingDistance();
-    
-    return 0;
+
 }
 
 uint8_t StepperPositioning::setSpeed(uint16_t steps_per_sec) {
@@ -259,17 +246,11 @@ uint8_t StepperPositioning::setSpeed(uint16_t steps_per_sec) {
     return 0;
 }
 
-uint8_t StepperPositioning::addTargetTicks(int16_t steps) {
+void StepperPositioning::addTargetTicks(int16_t steps) {
     
     //int16_t current_remaining = remaining_ticks[motor_index_];
     int16_t brake_dist = braking_distance[motor_index_];
 
-    // Check if we have enough distance to decelerate
-    int16_t abs_steps = (steps < 0) ? -steps : steps;
-    if (abs_steps < brake_dist) {
-        return 1; // ERROR: Cannot execute with current deceleration
-    }
-    
     // Set new target
     cli();
     int16_t new_target = remaining_ticks[motor_index_] + steps;
@@ -280,16 +261,14 @@ uint8_t StepperPositioning::addTargetTicks(int16_t steps) {
     //updateDirection();
     updateStepInterval();
     updateBrakingDistance();
-    return 0;
-
 }
 
 void StepperPositioning::setAcceleration(uint8_t percent_increase) {
     if (percent_increase < 1) {percent_increase = 1;}
-    if (percent_increase > 10) {percent_increase = 10;}
+    if (percent_increase > 5) {percent_increase = 5;}
     
     cli();
-    acceleration_mod[motor_index_] = percent_increase;
+    acceleration_shift[motor_index_] =7- percent_increase;
     sei();
     //updateAccelerationRate();
     //updateBrakingDistance();
@@ -303,15 +282,6 @@ void StepperPositioning::setImmediateTicks(int16_t steps) {
     cli();
     remaining_ticks[motor_index_] = steps;
     
-    // Set speed immediately (no acceleration)
-    if (steps != 0) {
-        // Calculate speed to complete steps
-        int16_t direction = (steps > 0) ? 1 : -1;
-                
-        // Use target speed, or default to reasonable speed
-        int16_t speed = target_speeds_stp_ps_[motor_index_];
-        
-    }
     sei();
     
     updateDirection();
@@ -346,12 +316,15 @@ void StepperPositioning::updateStepInterval() {
     //step_interval_ticks[motor_index_] = interval;
     target[motor_index_].skip_count = interval / 65536;
     target[motor_index_].remainder = interval % 65536;
-    if (target[motor_index_].skip_count < VERY_SLOW){
-        current[motor_index_].skip_count = SLOW; 
-    } else {
-        //skip count is greater than slow.. make it really slow ()
-        current[motor_index_].skip_count = VERY_SLOW; 
+    if (current[motor_index_].skip_count > SLOW){
+        if (target[motor_index_].skip_count < VERY_SLOW){
+           current[motor_index_].skip_count = SLOW; 
+        } else {
+            //skip count is greater than slow.. make it really slow ()
+            current[motor_index_].skip_count = VERY_SLOW; 
+        }   
     }
+    
     
     enabled_mask |= 1 << motor_index_;
 
@@ -473,9 +446,7 @@ void OnTimer1StepperPositioningOverflow(){
         if ((current[i].remainder != target[i].remainder) || (current[i].skip_count != target[i].skip_count)){
             previous_current[i].remainder = current[i].remainder;
             previous_current[i].skip_count = current[i].skip_count;
-            tcnt1a = TCNT1;
-            addToInterval2(target[i],current[i],acceleration_mod[i]);
-            tcnt1b = TCNT1;
+            addToInterval(target[i],current[i],acceleration_shift[i]);
             // if (current->skip_count > SLOW  && remaining_ticks[i] == 0) {new_curr = (STOP << 16);}
         }
         
@@ -498,8 +469,6 @@ void OnTimer1StepperPositioningOverflow(){
  */
 void OnTimer1StepperPositioningOCRA() {
     if (!event_present) {return;}
-    uint16_t current_time = TCNT1;
-    uint16_t next_event = 65535; // Max value
     step_pins_high_mask = 0;
     event_present = false;
 
@@ -509,7 +478,7 @@ void OnTimer1StepperPositioningOCRA() {
     // Check if this motor needs a step now (overflow_skip_count == 0 and time reached)
     for (int i = 0; i < 5; i++)
     {
-        if (!BIT_SET(next_,i)){continue;}
+        if (!(BIT_SET(next_,i))){continue;}
         //there are still ticks to perform before stop
         if (remaining_ticks[i] != 0) {
             
@@ -602,12 +571,7 @@ if (target[0].skip_count == STOP){
     di.target_interval = -1;
 }
 
-di.tcnt1_a = tcnt1a;
-di.tcnt1_b = tcnt1b;
-
 di.braking_distance = braking_distance[0];
-di.update_no = update_no;
-di.mask = enabled_mask;
 sei();
 return di;
 //volatile int16_t StepperPositioning::current_speeds_[MAX_STEPPERS] = {0, 0, 0, 0, 0};

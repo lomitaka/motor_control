@@ -78,7 +78,7 @@ public:
      * If the requested steps are less than the braking distance needed to stop,
      * the command is rejected and returns error code 1.
      */
-     uint8_t setTargetTicks(int16_t steps);
+     void setTargetTicks(int16_t steps);
 
 /**
      * @brief Set target speed for positioning movements
@@ -96,12 +96,11 @@ public:
     /**
      * @brief Add steps to current target position
      * @param steps         Steps to add to current target (can be negative)
-     * @return              0 on success, 1 if resulting target smaller than braking distance
      * 
      * Modifies the current remaining tick count. May fail if the resulting
      * target position would require more braking distance than available.
      */
-    uint8_t addTargetTicks(int16_t steps);
+    void addTargetTicks(int16_t steps);
     
     /**
      * @brief Set acceleration/deceleration rate
