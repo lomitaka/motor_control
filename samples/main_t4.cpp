@@ -110,9 +110,20 @@ void processCommand(const char *command, StepperPositioning & sp) {
 	if (command[0] == 'd'){
 		for (int i = 0; i < 30;i++){
 		DebugInfo dbg = GetDebugInfo();
+		
+		USART_WRITE_S("OCR1A:");USART_WRITE_UINT(OCR1A);USART_WRITE_S(":");
+		USART_WRITE_S("MASK:");USART_WRITE_UINT(dbg.mask);USART_WRITE_S(":");
+
+
+		USART_WRITE_S("tcnt1a:");USART_WRITE_LLONG(dbg.tcnt1_a);USART_WRITE_S(":");
+		USART_WRITE_S("tcnt1a:");USART_WRITE_LLONG(dbg.tcnt1_a);USART_WRITE_S(":");
+		USART_WRITE_S("tcnt1b:");USART_WRITE_LLONG(dbg.tcnt1_b);USART_WRITE_S(":");
+		USART_WRITE_S("BD:");USART_WRITE_LLONG(dbg.braking_distance);USART_WRITE_S(":");
+		USART_WRITE_S("PC:");USART_WRITE_LLONG(dbg.previous_interval);USART_WRITE_S(":");
 		USART_WRITE_S("C:");USART_WRITE_LLONG(dbg.current_interval);USART_WRITE_S(":");
 		USART_WRITE_S("R:");USART_WRITE_LLONG(dbg.remainining_interval);USART_WRITE_S(":");
 		USART_WRITE_S("T:");USART_WRITE_LLONG(dbg.target_interval);;USART_WRITE_S("\r\n");
+		USART_WRITE_S("UN:");USART_WRITE_LLONG(dbg.update_no);;USART_WRITE_S("\r\n");
 		delay(4);
 		}
 	}
@@ -146,6 +157,16 @@ void setup(){
 
 void loop() {
 	
+	/*delay(2000);
+	sp.setTargetTicks(200);
+	delay(2000);
+	sp.setTargetTicks(200);
+	delay(2000);
+	sp.addTargetTicks(200);
+	delay(2000);
+	sp.addTargetTicks(200);
+
+	delay(20000);*/
 
 	readLine(buffer, BUFFER_SIZE); // Načtení příkazu
 	if (buffer[0] != '\0'){
@@ -155,6 +176,11 @@ void loop() {
 		delay(2);
 		processCommand(buffer, sp);       // Zpracování příkazu
 	}
+
+		DebugInfo dbg = GetDebugInfo();
+		USART_WRITE_S("C:");USART_WRITE_LLONG(dbg.current_interval);USART_WRITE_S("\n\r");
+
+		delay(3);
 
 
 }//loop

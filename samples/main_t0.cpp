@@ -1,8 +1,7 @@
-#include "motor_control/servo_control.h"
-#include "motor_control/stepper_continuous.h"
+#include "../include/motor_control/stepper_continuous.h"
 #include "usart.h"
 #include "arduino.h"
-
+#include <avr/interrupt.h>
 
 StepperContinuous sc;
 
@@ -137,15 +136,139 @@ void setup(){
 
 
 
+struct Interval {
+    uint8_t skip_count;//255 for full stop
+    uint16_t remainder;
+
+    // Elegantnější cesta: Přetížení operátoru <
+    // Pozor: Operátor v C++ standardně bere jen pravou stranu, 
+    // takže divider musíme předat jinak, nebo předpokládat fixní divider.
+    // Zde ukázka s předpokladem stejného divideru pro obě struktury:
+    bool operator<(const volatile Interval& other) const volatile {
+        uint8_t sc1 = skip_count;
+        uint8_t sc2 = other.skip_count;
+        if (sc1 != sc2) return sc1 < sc2;
+        
+        uint16_t rem1 = remainder;
+        uint16_t rem2 = other.remainder;
+        return rem1 < rem2;
+    }
+
+    // Přetížení operátoru rovnosti (==)
+    bool operator==(const volatile Interval& other) const volatile {
+        return (skip_count == other.skip_count) && (remainder == other.remainder);
+    }
+
+    // Přetížení operátoru nerovnosti (!=)
+    bool operator!=(const volatile Interval& other) const volatile {
+        return (skip_count !=  other.skip_count) || (remainder != other.remainder);
+    }
+    
+    bool operator>(const volatile Interval& other) const volatile {
+    uint8_t sc1 = skip_count;
+    uint8_t sc2 = other.skip_count;
+    if (sc1 != sc2) return sc1 > sc2; // Větší než (>)
+    
+    uint16_t rem1 = remainder;
+    uint16_t rem2 = other.remainder;
+    return rem1 > rem2; // Větší než (>)
+    }
+
+    volatile Interval& operator=(const volatile Interval& other) volatile {
+        // Bezpečně načteme hodnoty z 'other' do lokálních proměnných 
+        // (pokud by 'other' byl náhodou také volatile)
+        uint8_t sc = other.skip_count;
+        uint16_t rem = other.remainder;
+
+        // Zapíšeme je do našich volatile položek
+        skip_count = sc;
+        remainder = rem;
+
+        // Operátor přiřazení v C++ standardně vrací referenci na sebe, 
+        // abyste mohli řetězit přiřazení typu a = b = c;
+        return *this;
+    }
+
+};
+
+
+
+#define STOP 250
+#define SLOW 9
+#define VERY_SLOW 244
+#define VERY_SLOW2 (uint32_t)244 << 16
+
+
+void addToInterval2a(volatile Interval & target, volatile Interval & new_current, uint8_t modifier){
+    //modifier -number from 1-10 for more aggresive interval update
+
+    if (target > new_current){
+        //need to add to new_current
+        uint32_t new_curr = ((uint32_t)new_current.skip_count << 16) + new_current.remainder;
+        //add 8 percent of new_current to new_curr
+        new_curr = new_curr + modifier*(new_curr >> 3);
+        //handle top (converts it into stop)target_speeds_stp_ps_
+        if (new_current.skip_count > VERY_SLOW ) {new_curr = ((uint32_t)VERY_SLOW << 16);}
+        new_current.remainder = new_curr & 0xFFFF;
+        new_current.skip_count = new_curr >> 16;
+        
+        if (new_current > target){
+            new_current.remainder = target.remainder;
+            new_current.skip_count = target.skip_count;
+        }
+        
+    }else if (target < new_current){
+        uint32_t new_curr = ((uint32_t)new_current.skip_count << 16) + new_current.remainder;
+        //add 8 percent of new_current to new_curr
+        
+        new_curr = new_curr - modifier*(new_curr >> 3);
+        //lower protectin
+        if (new_curr < 200) {new_curr = 200;}
+        new_current.remainder = new_curr & 0xFFFF;
+        new_current.skip_count = new_curr >> 16;
+        
+        if (new_current < target){
+            new_current.remainder = target.remainder;
+            new_current.skip_count = target.skip_count;
+        }
+    }
+}
+
+
+
+void addTest(){
+
+    uint32_t targetn =  589824;
+    uint32_t currentn =  13421774;
+    volatile Interval target;
+    target.skip_count = targetn / 65536;
+    target.remainder = targetn % 65536;
+    
+    volatile Interval current;
+    current.skip_count = currentn / 65536;
+    current.remainder = currentn % 65536;
+
+	USART_WRITE_S("\n\r");
+	USART_WRITE_S("\n\r");
+    for (int i = 0 ; i < 10; i++){
+
+        addToInterval2a(target, current, 1);
+        uint32_t val =  ((uint32_t)current.skip_count << 16)+ current.remainder;
+        USART_WRITE_LLONG(val);
+		USART_WRITE_S("\n\r");
+    }
+}
+
+
+
+
+
 void loop() {
 	
-	for (int i = 0; i <200;i++){
-		digitalWrite(2,HIGH);
-		delay(5);
-		digitalWrite(2,LOW);
-		delay(5);
-	}
-	delay(2000);
+	
+	addTest();
+	
+	delay(20000);
 	/*readLine(buffer, BUFFER_SIZE); // Načtení příkazu
 	if (buffer[0] != '\0'){
 		USART_WRITE_S("GOT CMD\r");
@@ -164,6 +287,8 @@ void loop() {
 
 int main(){				
 	setup();
+	
+
 	while(true){
 		loop();
 	}

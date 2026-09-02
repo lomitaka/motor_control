@@ -91,9 +91,22 @@ void USART_WRITE_INT(int number){
 	sprintf(str, "%d", number);
 	USART_WRITE_S(str);
 }
-void USART_WRITE_LLONG(long number){
-	char str[20]{32,32,32,32,32,32,32,32,32,65};
-	sprintf(str, "%ld", number);
+void USART_WRITE_LLONG(long long number){
+	if (number < 0) {
+		USART_WRITE_S("-");	
+		number = -number;
+	}
+
+	if (number > 4294967296){
+		uint32_t base = number / 4294967296;
+		USART_WRITE_UINT(base);
+		number = number % 4294967296;
+
+	}
+
+	uint32_t number32 = (uint32_t)number;
+	char str[22]{32,32,32,32,32,32,32,32,32,32,32,65};
+	sprintf(str, "%ld", number32);
 	USART_WRITE_S(str);
 }
 void USART_WRITE_FLOAT(float number){
