@@ -354,6 +354,8 @@ void AVRTimerSimulator::simulate(double duration_seconds, double timestep_us) {
     std::cout << "Log saved to file" << std::endl;
 }
 
+namespace motor_control_internals{
+
 // Arduino-like digitalWrite funkce pro simulaci
 // Pin mapping: 0-7 = PORTD, 8-13 = PORTB, 14-19 = PORTC (A0-A5)
 void digitalWrite(uint8_t pin, uint8_t value) {
@@ -381,6 +383,23 @@ void digitalWrite(uint8_t pin, uint8_t value) {
             AVRSim::PORTC &= ~(1 << bit);
         }
     }
+}
+
+
+/**/
+int digitalRead(uint8_t pin) {
+	// Read the digital state of the pin
+	if (pin <= 7) {
+		return (AVRSim::PIND >> pin) & 1;
+		} else if (pin >= 8 && pin <= 13) {
+		return (AVRSim::PINB >> (pin - 8)) & 1;
+	}
+	// For other ports (e.g., C), you would add similar code.
+
+	// Return a default value if an invalid pin is provided
+	return 0;
+}
+
 }
 
 // Konfigurace typu motoru na pinu

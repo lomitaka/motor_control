@@ -16,6 +16,8 @@
 
 #include "stddef.h"
 
+using namespace motor_control_internals;
+
 volatile uint8_t ServoControl::curr_motor_i = 0;
 volatile uint8_t ServoControl::serv_motor_count_ = 0;
 volatile uint16_t ServoControl::serv_motors_[5] = {0, 0, 0, 0, 0};

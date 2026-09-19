@@ -66,13 +66,20 @@ public:
      */
     uint8_t init(uint8_t step_pin, uint8_t dir_pin);
     
+
+    /*
+      Sets initial ticking speed for the moment when motor is spining up. 
+      if is set speed that is slower than steps_per_sec, it is considered as stop speed.
+    */
+    void setSpinupSpeedTicks(uint16_t steps_per_sec);
+
+
     /**
      * @brief Set target amount of ticks to perform
      * @param steps          Number of steps to move
      *                      - Positive values: clockwise rotation
      *                      - Negative values: counter-clockwise rotation
      *                      - Zero: smooth stop (with deceleration)
-     * @return              0 on success, 1 if steps smaller than braking distance
      * 
      * Motor will accelerate to target speed, then decelerate to stop at target position.
      * If the requested steps are less than the braking distance needed to stop,
@@ -90,6 +97,7 @@ public:
      * Does not start motor movement, just sets the speed motor should reach during
      * positioning. Automatically recalculates braking distance based on this speed.
      * Initial value: 0 steps/s (motor stopped)
+     * Note: any speed that is slower than spinupSpeed is considered as stop speed.
      */
     uint8_t setSpeed(uint16_t steps_per_sec);
 
@@ -104,7 +112,7 @@ public:
     
     /**
      * @brief Set acceleration/deceleration rate
-     * @param percent_increase speed change in percents. (valid values 1-100)
+     * @param percent_increase speed change in percents. (valid values 1-5)
      * 
      * Automatically recalculates braking distance when changed.
      */

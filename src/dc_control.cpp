@@ -20,6 +20,7 @@
 #include "internals/arduino.h"
 #include "internals/fces.h"
 
+using namespace motor_control_internals;
 
 
 /* Main idea:

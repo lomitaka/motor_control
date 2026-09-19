@@ -113,7 +113,6 @@ void processCommand(const char *command, StepperPositioning & sp) {
 		
 		USART_WRITE_S("OCR1A:");USART_WRITE_UINT(OCR1A);USART_WRITE_S(":");
 		USART_WRITE_S("BD:");USART_WRITE_LLONG(dbg.braking_distance);USART_WRITE_S(":");
-		USART_WRITE_S("PC:");USART_WRITE_LLONG(dbg.previous_interval);USART_WRITE_S(":");
 		USART_WRITE_S("C:");USART_WRITE_LLONG(dbg.current_interval);USART_WRITE_S(":");
 		USART_WRITE_S("R:");USART_WRITE_LLONG(dbg.remainining_interval);USART_WRITE_S(":");
 		USART_WRITE_S("T:");USART_WRITE_LLONG(dbg.target_interval);;USART_WRITE_S("\r\n");

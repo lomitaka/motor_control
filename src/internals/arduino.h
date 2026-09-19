@@ -7,6 +7,8 @@
  */ 
 
 // Define constants for pin modes
+
+namespace motor_control_internals {
 #include "stdint.h"
 
 #define INPUT 0
@@ -20,3 +22,5 @@ int digitalRead(uint8_t pin);
 void digitalWrite(uint8_t pin, uint8_t value);
 uint16_t analogRead(uint8_t pin) ;
 void delay(double ms);
+
+}

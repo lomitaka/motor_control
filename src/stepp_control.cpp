@@ -10,6 +10,9 @@
 #include "internals/stepp_timer_control.h"
 #include "internals/arduino.h"
 #include "internals/fces.h"
+#include <iostream>
+
+using namespace motor_control_internals;
 
 /**
  * @file stepp_control.cpp
@@ -122,7 +125,7 @@ void addToInterval(volatile Interval & target, volatile Interval & new_current, 
         uint32_t new_curr = ((uint32_t)new_current.skip_count << 16) + new_current.remainder;
         //add 8 percent of new_current to new_curr
         
-        new_curr = new_curr - (new_curr >> 3);
+        new_curr = new_curr - (new_curr >> accel_shif);
         //lower protectin
         if (new_curr < 200) {new_curr = 200;}
         new_current.remainder = new_curr & 0xFFFF;
@@ -140,7 +143,7 @@ void addToInterval(volatile Interval & target, volatile Interval & new_current, 
 // Internal ISR variables
 namespace {
 
-
+    volatile Interval spinup_interval = {9,0};
     // Position tracking
     volatile int16_t remaining_ticks[5] = {0, 0, 0, 0, 0};      // Remaining steps to target (how many ticks to perform before stop)
 
@@ -149,10 +152,10 @@ namespace {
     volatile uint8_t next_ = 0; //mask of  indexes to be processed in current window. (always set on overflow, may be updated on OCRA), 0 for no update
     //length of the current interval - current length of the interval for next remaining update.
     volatile Interval current[5] = { {SLOW,0},{SLOW,0},{SLOW,0},{SLOW,0},{SLOW,0} };
-    volatile Interval previous_current[5] = { {SLOW,0},{SLOW,0},{SLOW,0},{SLOW,0},{SLOW,0} };
     
     //length of the interval that is wished to achieve
     volatile Interval target[5] = { {0,0},{0,0},{0,0},{0,0},{0,0} };
+    volatile Interval slow_target = {SLOW,0};
     
     volatile uint16_t acceleration_shift[5] = {3,3,3,3,3};      ///2-6 adds 50% to 3% percent to acceleration speed (default 3 ~ 12%)
     volatile int16_t braking_distance[5] = {50, 50, 50, 50, 50};    // Steps needed to stop
@@ -215,7 +218,17 @@ uint8_t StepperPositioning::init(uint8_t step_pin, uint8_t dir_pin) {
     
     return 0;
 }
+void StepperPositioning::setSpinupSpeedTicks(uint16_t steps_per_sec){   
+    uint32_t interval = TICKS_PER_SECOND / steps_per_sec;
+    if (interval < 100) interval = 100; // Safety: min 100 ticks (6.25μs)
+    // Note: interval can be > 65535 (e.g., for very slow speeds)
+    cli();   
+    //step_interval_ticks[motor_index_] = interval;
+    spinup_interval.skip_count = interval / 65536;
+    spinup_interval.remainder = interval % 65536;
+    sei();
 
+}
 void StepperPositioning::setTargetTicks(int16_t steps) {   
 
         
@@ -232,7 +245,7 @@ void StepperPositioning::setTargetTicks(int16_t steps) {
 }
 
 uint8_t StepperPositioning::setSpeed(uint16_t steps_per_sec) {
-    // Clamp to valid range: -5000 to +5000 steps/s
+    // Clamp to valid range: 0 to +5000 steps/s
     if (steps_per_sec > 5000) steps_per_sec = 5000;
     cli();
     target_speeds_stp_ps_[motor_index_] = steps_per_sec;
@@ -316,13 +329,8 @@ void StepperPositioning::updateStepInterval() {
     //step_interval_ticks[motor_index_] = interval;
     target[motor_index_].skip_count = interval / 65536;
     target[motor_index_].remainder = interval % 65536;
-    if (current[motor_index_].skip_count > SLOW){
-        if (target[motor_index_].skip_count < VERY_SLOW){
-           current[motor_index_].skip_count = SLOW; 
-        } else {
-            //skip count is greater than slow.. make it really slow ()
-            current[motor_index_].skip_count = VERY_SLOW; 
-        }   
+    if (current[motor_index_] > spinup_interval){
+        current[motor_index_].skip_count = STOP; 
     }
     
     
@@ -443,10 +451,36 @@ void OnTimer1StepperPositioningOverflow(){
             target[i].remainder = 0;
             target[i].skip_count = SLOW;
         }
+
+        
+
+        uint8_t current_direction_pos =digitalRead(StepperPositioning::dir_pins_[i]);
+        //if there is direction mismatch. i should slow down.  and if i am already slowed down, change direction.
+        if ((remaining_ticks[i] > 0 && current_direction_pos) ||
+            (remaining_ticks[i] < 0 && !current_direction_pos)){
+            if (current[i] < slow_target){
+                //change direction of direction pin
+                digitalWrite(StepperPositioning::dir_pins_[i],1-current_direction_pos);
+            }else {
+                //slow down.
+               /* std::cout << "target: " << (((uint32_t)target[i].skip_count << 16) + target[i].remainder)
+                << " current: " << (((uint32_t)current[i].skip_count << 16) + current[i].remainder)
+                << std::endl;*/
+                addToInterval(slow_target,current[i],acceleration_shift[i]);
+                /*std::cout << "target: " << (((uint32_t)target[i].skip_count << 16) + target[i].remainder)
+                << " current: " << (((uint32_t)current[i].skip_count << 16) + current[i].remainder)
+                << std::endl;*/
+            }
+        }else 
         if ((current[i].remainder != target[i].remainder) || (current[i].skip_count != target[i].skip_count)){
-            previous_current[i].remainder = current[i].remainder;
-            previous_current[i].skip_count = current[i].skip_count;
+           /* std::cout << "target: " << (((uint32_t)target[i].skip_count << 16) + target[i].remainder)
+                      << " current: " << (((uint32_t)current[i].skip_count << 16) + current[i].remainder)
+                      << std::endl;*/
             addToInterval(target[i],current[i],acceleration_shift[i]);
+            /*std::cout << "target: " << (((uint32_t)target[i].skip_count << 16) + target[i].remainder)
+                      << " current: " << (((uint32_t)current[i].skip_count << 16) + current[i].remainder)
+                      << std::endl;*/
+            
             // if (current->skip_count > SLOW  && remaining_ticks[i] == 0) {new_curr = (STOP << 16);}
         }
         
@@ -501,9 +535,14 @@ void OnTimer1StepperPositioningOCRA() {
 
             uint32_t remainder_new = ((uint32_t)remaining[i].skip_count << 16) + remaining[i].remainder;
             remainder_new = remainder_new + ((uint32_t)current[i].skip_count << 16) + current[i].remainder;
-            if (remainder_new > VERY_SLOW2) {remainder_new = VERY_SLOW2;}
-            remaining[i].remainder = remainder_new & 0xFFFF;
-            remaining[i].skip_count = (remainder_new >> 16);
+            //if it too slow, then stop it. 
+            if (remainder_new > VERY_SLOW2) {
+                remaining[i].remainder = 0;
+                remaining[i].skip_count = STOP;
+            }else {
+                remaining[i].remainder = remainder_new & 0xFFFF;
+                remaining[i].skip_count = (remainder_new >> 16);
+            }
             
         }
     }
@@ -561,10 +600,6 @@ if (current[0].skip_count == STOP){
     di.current_interval = -1;
 }
 
-di.previous_interval = ((int64_t)previous_current[0].skip_count << 16) + previous_current[0].remainder;
-if (previous_current[0].skip_count == STOP){
-    di.previous_interval = -1;
-}
 
 di.target_interval = ((int64_t)target[0].skip_count <<16) + target[0].remainder;
 if (target[0].skip_count == STOP){

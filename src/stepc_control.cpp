@@ -11,6 +11,8 @@
 #include "internals/arduino.h"
 #include "internals/fces.h"
 
+using namespace motor_control_internals;
+
 /**
  * @file step_control.cpp
  * @brief Stepper motor control implementation using accumulator approach
