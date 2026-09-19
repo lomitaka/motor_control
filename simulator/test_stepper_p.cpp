@@ -55,14 +55,19 @@ void test_single_stepper_speeds(AVRTimerSimulator * sim) {
     
     std::cout << "\nSetting 50 steps/s" << std::endl;
 
-    motor1.setTargetTicks(100) ;
-    sim->simulate(10.0,4.0); // 2 seconds
+   /* for (int i = 0 ; i < 10 ; i++){
+        motor1.setTargetTicks(50) ;
+        sim->simulate(1.0,4.0); // 2 seconds
+    }*/
 
-    motor1.setTargetTicks(60) ;
+    motor1.setTargetTicks(-500) ;
+    sim->simulate(1.0,4.0); // 2 seconds
+
+    motor1.setTargetTicks(+200) ;
     sim->simulate(3.0,4.0); // 2 seconds
 
-        motor1.setTargetTicks(100) ;
-    sim->simulate(10.0,4.0); // 2 seconds
+    //    motor1.setTargetTicks(100) ;
+    //sim->simulate(10.0,4.0); // 2 seconds
     //motor1.setSpeed(100);
     //motor1.addTargetTicks(200) ;
     //sim->simulate(5.0,4.0); // 2 seconds
@@ -94,7 +99,7 @@ void test_single_stepper_speeds(AVRTimerSimulator * sim) {
         
 }
 
-void test_multiple_steppers() {
+void test_multiple_steppers(AVRTimerSimulator * sim) {
     
     std::cout << "\n=== Test 2: Multiple Steppers ===" << std::endl;
     
@@ -104,18 +109,16 @@ void test_multiple_steppers() {
     StepperPositioning motor2(4, 5);   // STEP=4, DIR=5
     StepperPositioning motor3(6, 7);   // STEP=6, DIR=7
     
-    motor1.setAcceleration(500);
-    motor2.setAcceleration(300);
-    motor3.setAcceleration(800);
+    motor1.setAcceleration(1);
+    motor2.setAcceleration(2);
+    motor3.setAcceleration(1);
     
-    
-    AVRTimerSimulator sim;
-    sim.configurePin(2, MotorType::STEPPER);
-    sim.configurePin(4, MotorType::STEPPER);
-    sim.configurePin(6, MotorType::STEPPER);
-    sim.configurePin(3, MotorType::NONE);
-    sim.configurePin(5, MotorType::NONE);
-    sim.configurePin(7, MotorType::NONE);
+    sim->configurePin(2, MotorType::STEPPER);
+    sim->configurePin(4, MotorType::STEPPER);
+    sim->configurePin(6, MotorType::STEPPER);
+    sim->configurePin(3, MotorType::NONE);
+    sim->configurePin(5, MotorType::NONE);
+    sim->configurePin(7, MotorType::NONE);
     
     
     // Set different speeds
@@ -128,24 +131,24 @@ void test_multiple_steppers() {
     
     
     // Simulate 5 seconds
-    sim.simulate(5);
+    sim->simulate(5.0,4.0); // 2 seconds
     
     /*std::cout << "Final speeds:" << std::endl;
     std::cout << "  Motor1: " << motor1.getCurrentSpeed() << " steps/s (target: " << motor1.getTargetSpeed() << ")" << std::endl;
     std::cout << "  Motor2: " << motor2.getCurrentSpeed() << " steps/s (target: " << motor2.getTargetSpeed() << ")" << std::endl;
     std::cout << "  Motor3: " << motor3.getCurrentSpeed() << " steps/s (target: " << motor3.getTargetSpeed() << ")" << std::endl;
     */
-    sim.logMotorLoads();
+    //sim.logMotorLoads();
     
 }
-/*
-void test_direction_changes() {
+
+/*void test_direction_changes() {
     
     std::cout << "\n=== Test 3: Direction Changes ===" << std::endl;
     
     
-    StepperContinuous motor(2, 3);
-    motor.setAcceleration(1000); // Fast acceleration for quick test
+    StepperPositioning motor(2, 3);
+    motor.setAcceleration(1); // Fast acceleration for quick test
     
     
     AVRTimerSimulator sim;
@@ -219,9 +222,9 @@ void test_immediate_speed() {
     
     sim.logMotorLoads();
     
-}
+}*/
 
-*/
+
 void OnTimer1StepperPositioningOverflow();
 void OnTimer1StepperPositioningOCRA();
 void OnTimer1StepperPositioningOCRB();
@@ -408,7 +411,7 @@ int main() {
     
 
     test_single_stepper_speeds(&simulator);
-    //test_multiple_steppers();
+    //test_multiple_steppers(&simulator);
     //test_direction_changes();
     //test_immediate_speed();
     destroyLogger();

@@ -41,6 +41,7 @@ constexpr uint32_t TICKS_PER_SECOND = 16000000; // 16 MHz
 volatile uint8_t StepperPositioning::stepper_count_ = 0;
 volatile uint8_t StepperPositioning::step_pins_[MAX_STEPPERS] = {0, 0, 0, 0, 0};
 volatile uint8_t StepperPositioning::dir_pins_[MAX_STEPPERS] = {0, 0, 0, 0, 0};
+volatile uint8_t StepperPositioning::dir_pins_value_[MAX_STEPPERS] = {0, 0, 0, 0, 0};
 volatile uint16_t StepperPositioning::target_speeds_stp_ps_[MAX_STEPPERS] = {200, 200, 200, 200, 200};
 
 #define STOP 250
@@ -157,7 +158,6 @@ namespace {
     
     //length of the interval that is wished to achieve
     volatile Interval target[5] = { {0,0},{0,0},{0,0},{0,0},{0,0} };
-    volatile Interval slow_target = {SLOW,0};
     
     volatile uint16_t acceleration_shift[5] = {3,3,3,3,3};      ///2-6 adds 50% to 3% percent to acceleration speed (default 3 ~ 12%)
     volatile int16_t braking_distance[5] = {0, 0, 0, 0, 0};    // Steps needed to stop
@@ -343,8 +343,10 @@ void StepperPositioning::updateDirection() {
     
     if (speed >= 0) {
         digitalWrite(dir_pin_, HIGH);  // Clockwise
+        dir_pins_value_[motor_index_] = 0;
     } else {
         digitalWrite(dir_pin_, LOW);   // Counter-clockwise
+        dir_pins_value_[motor_index_] = 1;
     }
 }
 
@@ -418,7 +420,10 @@ void OnTimer1StepperPositioningOverflow(){
         }
         
         int16_t remaining_t = remaining_ticks[i];
+        //compensate for errors
+        if (braking_distance[i] < 0) {braking_distance[i] = 0;}
         int16_t brake_dist = braking_distance[i];
+        
         
         // Check if we need to start braking
         int16_t abs_remaining = (remaining_t < 0) ? -remaining_t : remaining_t;
@@ -431,25 +436,24 @@ void OnTimer1StepperPositioningOverflow(){
 
         
 
-        uint8_t current_direction_pos =digitalRead(StepperPositioning::dir_pins_[i]);
+        uint8_t current_direction_pos = StepperPositioning::dir_pins_value_[i];
+        //if (i == 0 && current_direction_pos){std::cout << "current pose: 1" << std::endl;}
+        //if (i == 0 && !current_direction_pos){std::cout << "current pose: 0" << std::endl;}
+        
         //if there is direction mismatch. i should slow down.  and if i am already slowed down, change direction.
-        if ((remaining_ticks[i] > 0 && current_direction_pos) ||
-            (remaining_ticks[i] < 0 && !current_direction_pos)){
-            if (current[i] < slow_target){
+        if (((remaining_ticks[i] > 0) && current_direction_pos) ||
+            ((remaining_ticks[i] < 0) && !current_direction_pos)){
+            //current is longer (slower) than spinup interval
+            // slow down.
+            accel_type[i] = addToInterval(spinup_interval,current[i],acceleration_shift[i]);
+            
+            if (!(current[i] < spinup_interval )){
                 //change direction of direction pin
                 digitalWrite(StepperPositioning::dir_pins_[i],1-current_direction_pos);
-            }else {
-                //slow down.
-               /* std::cout << "target: " << (((uint32_t)target[i].skip_count << 16) + target[i].remainder)
-                << " current: " << (((uint32_t)current[i].skip_count << 16) + current[i].remainder)
-                << std::endl;*/
-                accel_type[i] = addToInterval(slow_target,current[i],acceleration_shift[i]);
-                /*std::cout << "target: " << (((uint32_t)target[i].skip_count << 16) + target[i].remainder)
-                << " current: " << (((uint32_t)current[i].skip_count << 16) + current[i].remainder)
-                << std::endl;*/
+                StepperPositioning::dir_pins_value_[i] = 1-current_direction_pos;
             }
         }else 
-        if ((current[i].remainder != target[i].remainder) || (current[i].skip_count != target[i].skip_count)){
+        
            /* std::cout << "target: " << (((uint32_t)target[i].skip_count << 16) + target[i].remainder)
                       << " current: " << (((uint32_t)current[i].skip_count << 16) + current[i].remainder)
                       << std::endl;*/
@@ -459,9 +463,6 @@ void OnTimer1StepperPositioningOverflow(){
                       << std::endl;*/
             
             // if (current->skip_count > SLOW  && remaining_ticks[i] == 0) {new_curr = (STOP << 16);}
-        }else {
-            accel_type[i] = 0;
-        }
 
         
     }
@@ -509,6 +510,8 @@ void OnTimer1StepperPositioningOCRA() {
 
             //disable motor if ticks are zero
             if (remaining_ticks == 0){
+                //clear breaking distance
+                braking_distance[i] = 0;
                 enabled_mask &= ~(1 << i);
             }
 
