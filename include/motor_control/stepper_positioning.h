@@ -157,7 +157,6 @@ private:
     void updateStepInterval();     ///< Calculate step interval from target speed
     void updateDirection();        ///< Set direction pin based on speed sign
     void updateAccelerationRate(); ///< Pre-calculate speed change for acceleration (avoids division in ISR)
-    void updateBrakingDistance();  ///< Calculate braking distance based on current speed and acceleration
     
     // Static arrays for managing multiple steppers (shared with Timer ISR)
     static constexpr uint8_t MAX_STEPPERS = 5;

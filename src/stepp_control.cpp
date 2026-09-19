@@ -103,8 +103,8 @@ struct Interval {
 
 };
 
-
-void addToInterval(volatile Interval & target, volatile Interval & new_current, uint8_t accel_shif){
+//-1 interval extend, 1 interval schrinks
+int8_t addToInterval(volatile Interval & target, volatile Interval & new_current, uint8_t accel_shif){
     //modifier -number from 1-10 for more aggresive interval update
     if (target > new_current){
         //need to add to new_current
@@ -120,7 +120,7 @@ void addToInterval(volatile Interval & target, volatile Interval & new_current, 
             new_current.remainder = target.remainder;
             new_current.skip_count = target.skip_count;
         }
-        
+        return -1;
     }else if (target < new_current){
         uint32_t new_curr = ((uint32_t)new_current.skip_count << 16) + new_current.remainder;
         //add 8 percent of new_current to new_curr
@@ -135,7 +135,9 @@ void addToInterval(volatile Interval & target, volatile Interval & new_current, 
             new_current.remainder = target.remainder;
             new_current.skip_count = target.skip_count;
         }
+        return 1;
     }
+    return 0;
 }
 
 
@@ -158,7 +160,8 @@ namespace {
     volatile Interval slow_target = {SLOW,0};
     
     volatile uint16_t acceleration_shift[5] = {3,3,3,3,3};      ///2-6 adds 50% to 3% percent to acceleration speed (default 3 ~ 12%)
-    volatile int16_t braking_distance[5] = {50, 50, 50, 50, 50};    // Steps needed to stop
+    volatile int16_t braking_distance[5] = {0, 0, 0, 0, 0};    // Steps needed to stop
+    volatile int8_t accel_type[5] = {0, 0, 0, 0, 0};    // 1 ramp up, 0  const speed, -1 ramp down
     volatile uint8_t enabled_mask = false;    // bitmask for enabled motors [lower index - motor 0]
 
     
@@ -240,7 +243,6 @@ void StepperPositioning::setTargetTicks(int16_t steps) {
     // Update direction
     //updateDirection();
     updateStepInterval();
-    updateBrakingDistance();
 
 }
 
@@ -254,7 +256,6 @@ uint8_t StepperPositioning::setSpeed(uint16_t steps_per_sec) {
         
     // Recalculate braking distance and step interval
     updateStepInterval();
-    updateBrakingDistance();
     
     return 0;
 }
@@ -273,7 +274,6 @@ void StepperPositioning::addTargetTicks(int16_t steps) {
     // Update direction
     //updateDirection();
     updateStepInterval();
-    updateBrakingDistance();
 }
 
 void StepperPositioning::setAcceleration(uint8_t percent_increase) {
@@ -284,7 +284,6 @@ void StepperPositioning::setAcceleration(uint8_t percent_increase) {
     acceleration_shift[motor_index_] =7- percent_increase;
     sei();
     //updateAccelerationRate();
-    //updateBrakingDistance();
 }
 
 void StepperPositioning::setImmediateTicks(int16_t steps) {
@@ -299,7 +298,6 @@ void StepperPositioning::setImmediateTicks(int16_t steps) {
     
     updateDirection();
     updateStepInterval();
-    updateBrakingDistance();
 }
 
 bool StepperPositioning::isMoving() {
@@ -358,27 +356,6 @@ void StepperPositioning::updateAccelerationRate() {
        
 
 
-}
-
-void StepperPositioning::updateBrakingDistance() {
-    // Calculate braking distance: steps needed to decelerate to zero
-    // Using kinematic equation: v² = v₀² + 2as
-    // Solving for s: s = v² / (2a)
-    
-    cli();
-    int16_t speed = target_speeds_stp_ps_[motor_index_];//steps per second. 
-    sei();
-    
-   
-    //assuming: decrease takes 11 overflows (each overflow decreases speed atleast by 10%)
-    //16000000/65536 = 244 overflows per sec
-    //need ticks equivalent of 11 overflows.   (abs_speed/244 ~ ticks_per_overflow) * 11 = amount of ticks to stop.
-    uint16_t requiredticks = speed*11/244;//?? zde evidentne jsem se velmi sekl... proc?
-
-         
-    cli();
-    braking_distance[motor_index_] = requiredticks;
-    sei();
 }
 
 
@@ -466,7 +443,7 @@ void OnTimer1StepperPositioningOverflow(){
                /* std::cout << "target: " << (((uint32_t)target[i].skip_count << 16) + target[i].remainder)
                 << " current: " << (((uint32_t)current[i].skip_count << 16) + current[i].remainder)
                 << std::endl;*/
-                addToInterval(slow_target,current[i],acceleration_shift[i]);
+                accel_type[i] = addToInterval(slow_target,current[i],acceleration_shift[i]);
                 /*std::cout << "target: " << (((uint32_t)target[i].skip_count << 16) + target[i].remainder)
                 << " current: " << (((uint32_t)current[i].skip_count << 16) + current[i].remainder)
                 << std::endl;*/
@@ -476,13 +453,16 @@ void OnTimer1StepperPositioningOverflow(){
            /* std::cout << "target: " << (((uint32_t)target[i].skip_count << 16) + target[i].remainder)
                       << " current: " << (((uint32_t)current[i].skip_count << 16) + current[i].remainder)
                       << std::endl;*/
-            addToInterval(target[i],current[i],acceleration_shift[i]);
+            accel_type[i] = addToInterval(target[i],current[i],acceleration_shift[i]);
             /*std::cout << "target: " << (((uint32_t)target[i].skip_count << 16) + target[i].remainder)
                       << " current: " << (((uint32_t)current[i].skip_count << 16) + current[i].remainder)
                       << std::endl;*/
             
             // if (current->skip_count > SLOW  && remaining_ticks[i] == 0) {new_curr = (STOP << 16);}
+        }else {
+            accel_type[i] = 0;
         }
+
         
     }
 
@@ -531,7 +511,9 @@ void OnTimer1StepperPositioningOCRA() {
             if (remaining_ticks == 0){
                 enabled_mask &= ~(1 << i);
             }
-            
+
+            //each speedup increases number, and speed down decreases. intent is to use for ramp down tick counting.
+            braking_distance[i] = braking_distance[i] + accel_type[i];
 
             uint32_t remainder_new = ((uint32_t)remaining[i].skip_count << 16) + remaining[i].remainder;
             remainder_new = remainder_new + ((uint32_t)current[i].skip_count << 16) + current[i].remainder;

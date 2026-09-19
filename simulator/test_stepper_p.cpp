@@ -55,8 +55,14 @@ void test_single_stepper_speeds(AVRTimerSimulator * sim) {
     
     std::cout << "\nSetting 50 steps/s" << std::endl;
 
-    motor1.setTargetTicks(20) ;
-    sim->simulate(5.0,4.0); // 2 seconds
+    motor1.setTargetTicks(100) ;
+    sim->simulate(10.0,4.0); // 2 seconds
+
+    motor1.setTargetTicks(60) ;
+    sim->simulate(3.0,4.0); // 2 seconds
+
+        motor1.setTargetTicks(100) ;
+    sim->simulate(10.0,4.0); // 2 seconds
     //motor1.setSpeed(100);
     //motor1.addTargetTicks(200) ;
     //sim->simulate(5.0,4.0); // 2 seconds
