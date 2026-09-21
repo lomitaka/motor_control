@@ -1,28 +1,32 @@
-#include "motor_control/stepper_continuous.h"
+#include "motor_control/servo_control.h"
 #include "sample_console.h"
 #include "arduino.h"
 #include <avr/interrupt.h>
+#include "usart.h"
 
 namespace {
 
-StepperContinuous motor;
+ServoControl servo(9);
 char command[sample_console::BUFFER_SIZE];
 
 void help() {
     sample_console::printHeader(
-        "Continuous stepper test",
-        "speed <steps/s> | immediate <steps/s> | accel <steps/s2> | stop | demo | help");
+        "Servo driver test",
+        "set <value> | immediate <value> | stop | demo | help\r\n"
+        "value range: -1000..1000");
 }
 
 void demo() {
-    USART_WRITE_S("Continuous stepper demo: forward\r\n");
-    motor.setTargetSpeed(400);
-    delay(3000);
-    USART_WRITE_S("Continuous stepper demo: reverse\r\n");
-    motor.setTargetSpeed(-400);
-    delay(3000);
-    motor.setTargetSpeed(0);
-    USART_WRITE_S("Continuous stepper demo: stopped\r\n");
+    USART_WRITE_S("Servo demo: center -> left -> center -> right -> center\r\n");
+    servo.setTarget(0);
+    delay(1000);
+    servo.setTarget(-700);
+    delay(1500);
+    servo.setTarget(0);
+    delay(1000);
+    servo.setTarget(700);
+    delay(1500);
+    servo.setTarget(0);
 }
 
 void processCommand(const char *line) {
@@ -32,20 +36,14 @@ void processCommand(const char *line) {
     } else if (sample_console::isCommand(line, "demo")) {
         demo();
     } else if (sample_console::isCommand(line, "stop")) {
-        motor.setImmediateSpeed(0);
-        USART_WRITE_S("Stepper stopped\r\n");
-    } else if (sample_console::getArgument(line, "speed", value)) {
-        motor.setTargetSpeed(value);
-        sample_console::printValue("Target speed: ", value);
+        servo.setImmediate(0);
+        USART_WRITE_S("Servo centered\r\n");
+    } else if (sample_console::getArgument(line, "set", value)) {
+        servo.setTarget(value);
+        sample_console::printValue("Servo target: ", value);
     } else if (sample_console::getArgument(line, "immediate", value)) {
-        motor.setImmediateSpeed(value);
-        sample_console::printValue("Immediate speed: ", value);
-    } else if (sample_console::getArgument(line, "accel", value) && value >= 0) {
-        motor.setAcceleration(static_cast<uint16_t>(value));
-        sample_console::printValue("Acceleration: ", value);
-    } else if (sample_console::isCommand(line, "status")) {
-        sample_console::printValue("Current speed: ", motor.getCurrentSpeed());
-        sample_console::printValue("Target speed: ", motor.getTargetSpeed());
+        servo.setImmediate(value);
+        sample_console::printValue("Servo immediate: ", value);
     } else {
         sample_console::printUnknownCommand();
     }
@@ -54,12 +52,9 @@ void processCommand(const char *line) {
 }
 
 int main() {
-    motor.init(2, 3);
-    pinMode(2, OUTPUT);
-    pinMode(3, OUTPUT);
+    pinMode(9, OUTPUT);
     sample_console::initialize();
     sei();
-    motor.setAcceleration(100);
     help();
 
     while (true) {

@@ -36,10 +36,10 @@ void processCommand(const char *line) {
     } else if (sample_console::isCommand(line, "stop")) {
         motor.setImmediate(0);
         USART_WRITE_S("DC stopped\r\n");
-    } else if (sample_console::getArgument(line, "set", value) && value >= 0) {
+    } else if (sample_console::getArgument(line, "set", value)) {
         motor.setTarget(value);
         sample_console::printValue("DC target: ", value);
-    } else if (sample_console::getArgument(line, "immediate", value) && value >= 0) {
+    } else if (sample_console::getArgument(line, "immediate", value)) {
         motor.setImmediate(value);
         sample_console::printValue("DC immediate: ", value);
     } else {

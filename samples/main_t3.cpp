@@ -1,29 +1,29 @@
-#include "motor_control/stepper_positioning.h"
+#include "motor_control/stepper_continuous.h"
 #include "sample_console.h"
 #include "arduino.h"
 #include <avr/interrupt.h>
+#include "usart.h"
 
 namespace {
 
-StepperPositioning motor;
+StepperContinuous motor;
 char command[sample_console::BUFFER_SIZE];
 
 void help() {
     sample_console::printHeader(
-        "Positioning stepper test",
-        "speed <steps/s> | accel <1..5> | move <steps> | add <steps> | immediate <steps> | stop | demo | help");
+        "Continuous stepper test",
+        "speed <steps/s> | immediate <steps/s> | accel <steps/s2> | stop | demo | help");
 }
 
 void demo() {
-    USART_WRITE_S("Positioning demo: +400 steps\r\n");
-    motor.setTargetTicks(400);
-    while (motor.isMoving()) {
-    }
-    USART_WRITE_S("Positioning demo: -400 steps\r\n");
-    motor.setTargetTicks(-400);
-    while (motor.isMoving()) {
-    }
-    USART_WRITE_S("Positioning demo: complete\r\n");
+    USART_WRITE_S("Continuous stepper demo: forward\r\n");
+    motor.setTargetSpeed(400);
+    delay(3000);
+    USART_WRITE_S("Continuous stepper demo: reverse\r\n");
+    motor.setTargetSpeed(-400);
+    delay(3000);
+    motor.setTargetSpeed(0);
+    USART_WRITE_S("Continuous stepper demo: stopped\r\n");
 }
 
 void processCommand(const char *line) {
@@ -33,25 +33,20 @@ void processCommand(const char *line) {
     } else if (sample_console::isCommand(line, "demo")) {
         demo();
     } else if (sample_console::isCommand(line, "stop")) {
-        motor.setImmediateTicks(0);
-        USART_WRITE_S("Positioning stopped\r\n");
-    } else if (sample_console::getArgument(line, "speed", value) && value >= 0) {
-        motor.setSpeed(static_cast<uint16_t>(value));
-        sample_console::printValue("Positioning speed: ", value);
-    } else if (sample_console::getArgument(line, "accel", value) && value >= 1 && value <= 5) {
-        motor.setAcceleration(static_cast<uint8_t>(value));
-        sample_console::printValue("Positioning acceleration: ", value);
-    } else if (sample_console::getArgument(line, "move", value)) {
-        motor.setTargetTicks(value);
-        sample_console::printValue("Move: ", value);
-    } else if (sample_console::getArgument(line, "add", value)) {
-        motor.addTargetTicks(value);
-        sample_console::printValue("Added steps: ", value);
+        motor.setImmediateSpeed(0);
+        USART_WRITE_S("Stepper stopped\r\n");
+    } else if (sample_console::getArgument(line, "speed", value)) {
+        motor.setTargetSpeed(value);
+        sample_console::printValue("Target speed: ", value);
     } else if (sample_console::getArgument(line, "immediate", value)) {
-        motor.setImmediateTicks(value);
-        sample_console::printValue("Immediate steps: ", value);
+        motor.setImmediateSpeed(value);
+        sample_console::printValue("Immediate speed: ", value);
+    } else if (sample_console::getArgument(line, "accel", value) && value >= 0) {
+        motor.setAcceleration(static_cast<uint16_t>(value));
+        sample_console::printValue("Acceleration: ", value);
     } else if (sample_console::isCommand(line, "status")) {
-        USART_WRITE_S(motor.isMoving() ? "Moving\r\n" : "Stopped\r\n");
+        sample_console::printValue("Current speed: ", motor.getCurrentSpeed());
+        sample_console::printValue("Target speed: ", motor.getTargetSpeed());
     } else {
         sample_console::printUnknownCommand();
     }
@@ -65,8 +60,7 @@ int main() {
     pinMode(3, OUTPUT);
     sample_console::initialize();
     sei();
-    motor.setAcceleration(3);
-    motor.setSpeed(400);
+    motor.setAcceleration(100);
     help();
 
     while (true) {
