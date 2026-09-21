@@ -84,12 +84,29 @@ add_executable(motor_scenario_test
 
 target_link_libraries(motor_scenario_test avr_simulator)
 
+add_executable(dc_test
+    test_dc.cpp
+    ${MOTOR_CONTROL_SOURCES}
+)
+
+target_link_libraries(dc_test avr_simulator)
+
 target_compile_definitions(motor_scenario_test PRIVATE 
     SIMULATION_MODE=1
     F_CPU=16000000UL
 )
 
+target_compile_definitions(dc_test PRIVATE
+    SIMULATION_MODE=1
+    F_CPU=16000000UL
+)
+
 target_compile_options(motor_scenario_test PRIVATE 
+    -DAVR_MOCK
+    -Wno-unused-variable
+)
+
+target_compile_options(dc_test PRIVATE
     -DAVR_MOCK
     -Wno-unused-variable
 )
@@ -145,6 +162,12 @@ add_custom_target(run_scenario_test
     COMMAND motor_scenario_test
     DEPENDS motor_scenario_test
     COMMENT "Running motor scenario tests (servo, DC, stepper)"
+)
+
+add_custom_target(run_dc_test
+    COMMAND dc_test
+    DEPENDS dc_test
+    COMMENT "Running the minimal DC motor simulation test"
 )
 
 add_custom_target(run_p_stepper_test

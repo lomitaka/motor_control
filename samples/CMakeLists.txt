@@ -10,6 +10,7 @@ option(TARGET_AVR "Compile for AVR microcontroller" ON)
 
 # Nastavení cest k include adresářům
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../include)
 
 
 
@@ -18,6 +19,7 @@ set(SOURCES
     #main.cpp
     usart.cpp
     arduino.cpp
+    sample_console.cpp
     ../include/motor_control/debug.h
     ../include/motor_control/stepper_positioning.h
 )
