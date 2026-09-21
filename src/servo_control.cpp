@@ -67,12 +67,6 @@ void ServoControl::setImmediate(int16_t value){
     setServMotorValue(motor_index, value);
 }
 
-// Configure ramping: type and time to reach target (milliseconds)
-void ServoControl::configureRamp(int16_t rampTime_ms){
-    //props.ramp_.time_ms = rampTime_ms;
-}
-
-
 
 
 

@@ -10,7 +10,6 @@
 #include "internals/stepp_timer_control.h"
 #include "internals/arduino.h"
 #include "internals/fces.h"
-#include <iostream>
 
 using namespace motor_control_internals;
 
@@ -262,9 +261,6 @@ uint8_t StepperPositioning::setSpeed(uint16_t steps_per_sec) {
 
 void StepperPositioning::addTargetTicks(int16_t steps) {
     
-    //int16_t current_remaining = remaining_ticks[motor_index_];
-    int16_t brake_dist = braking_distance[motor_index_];
-
     // Set new target
     cli();
     int16_t new_target = remaining_ticks[motor_index_] + steps;

@@ -1,159 +1,76 @@
-#include "motor_control/servo_control.h"
-#include "motor_control/stepper_continuous.h"
-#include "usart.h"
+#include "motor_control/stepper_positioning.h"
+#include "sample_console.h"
 #include "arduino.h"
+#include <avr/interrupt.h>
 
+namespace {
 
-StepperContinuous sc;
+StepperPositioning motor;
+char command[sample_console::BUFFER_SIZE];
 
-
-
-#define FOSC 16000000 // Clock Speed
-#define BAUD 57600
-#define MYUBRR round(FOSC/16.0/BAUD)-1
-#define BUFFER_SIZE 300
-
-char buffer[BUFFER_SIZE];
-
-uint16_t parse_num(const char *command){
-	uint16_t result = 0;
-	int i = 0;
-	while (command[i] >= '0' && command[i] <= '9') {
-			//USART_WRITE_UINT((uint8_t)c);
-			result = result * 10 + (command[i] - '0');
-			i++;
-		}
-	return result;
+void help() {
+    sample_console::printHeader(
+        "Positioning stepper test",
+        "speed <steps/s> | accel <1..5> | move <steps> | add <steps> | immediate <steps> | stop | demo | help");
 }
 
-
-
-//valid settigns
-//stty -F /dev/ttyACM0 57600 cs8 -parenb -cstopb
-// Funkce pro čtení řádku
-void readLine(char *buffer, uint16_t buffer_size) {
-	uint8_t index = 0;
-    int received_char;
-
-	while (1) {
-		received_char = USART_Receive(); // Přijmi znak
-		if (received_char == -1){
-					//USART_WRITE_UINT(received_char);
-					//USART_WRITE_S(" ");
-					buffer[index] = '\0'; 
-		return;
-		}
-		if (received_char == '\n' || received_char == '\r') { // Pokud je konec řádku
-			//USART_WRITE_S("TERMINATING");
-			buffer[index] = '\0'; // Ukonči řetězec
-			break;
-		} else if (index < buffer_size - 1) { // Pokud je místo v bufferu
-			//USART_WRITE_S("ADDING TO BUFFER");
-			buffer[index++] = received_char; // Přidej znak do bufferu
-		} else {
-			// Ochrana proti přetečení: ukonči řetězec
-			buffer[index] = '\0';
-			//USART_WRITE_S("buffer overflow\r\n");
-			break;
-		}
-	}
+void demo() {
+    USART_WRITE_S("Positioning demo: +400 steps\r\n");
+    motor.setTargetTicks(400);
+    while (motor.isMoving()) {
+    }
+    USART_WRITE_S("Positioning demo: -400 steps\r\n");
+    motor.setTargetTicks(-400);
+    while (motor.isMoving()) {
+    }
+    USART_WRITE_S("Positioning demo: complete\r\n");
 }
 
-
-// Funkce pro analýzu příkazu
-void processCommand(const char *command, StepperContinuous & sc) {
-	if (command[0] == 'H') {
-		USART_WRITE_S("T100\nA100\n");
-		
-	}
-
-	//set speed
-	if (command[0] == 'T'){
-		// Příkaz SET - hledáme parametr a hodnotu
-		uint8_t i = 0;                   // Pozice, kde začíná hodnota
-		int8_t sign = 1;
-		if (command[i] == '-') {
-			i++; // Přeskoč znaménko mínus
-			sign = -1;
-		}
-
-		int16_t speed = parse_num(command+ i+1);
-
-		// Přečti hodnotu znaku po znaku
-
-		speed = speed * sign;
-
-		sc.setTargetSpeed(speed);
-		USART_WRITE_S("speed set to"); USART_WRITE_UINT(speed); USART_WRITE_S("\r\n");
-	}
-	if (command[0] == 'A'){
-		// Příkaz SET - hledáme parametr a hodnotu
-		uint8_t i = 0;                   // Pozice, kde začíná hodnota
-		int8_t sign = 1;
-		if (command[i] == '-') {
-			i++; // Přeskoč znaménko mínus
-			sign = -1;
-		}
-
-		int16_t speed = parse_num(command+ i+1);
-
-		// Přečti hodnotu znaku po znaku
-
-		speed = speed * sign;
-		sc.setAcceleration(speed);
-		USART_WRITE_S("acceleration set to"); USART_WRITE_UINT(speed); USART_WRITE_S("\r\n");
-	}
+void processCommand(const char *line) {
+    int16_t value;
+    if (sample_console::isCommand(line, "help")) {
+        help();
+    } else if (sample_console::isCommand(line, "demo")) {
+        demo();
+    } else if (sample_console::isCommand(line, "stop")) {
+        motor.setImmediateTicks(0);
+        USART_WRITE_S("Positioning stopped\r\n");
+    } else if (sample_console::getArgument(line, "speed", value) && value >= 0) {
+        motor.setSpeed(static_cast<uint16_t>(value));
+        sample_console::printValue("Positioning speed: ", value);
+    } else if (sample_console::getArgument(line, "accel", value) && value >= 1 && value <= 5) {
+        motor.setAcceleration(static_cast<uint8_t>(value));
+        sample_console::printValue("Positioning acceleration: ", value);
+    } else if (sample_console::getArgument(line, "move", value)) {
+        motor.setTargetTicks(value);
+        sample_console::printValue("Move: ", value);
+    } else if (sample_console::getArgument(line, "add", value)) {
+        motor.addTargetTicks(value);
+        sample_console::printValue("Added steps: ", value);
+    } else if (sample_console::getArgument(line, "immediate", value)) {
+        motor.setImmediateTicks(value);
+        sample_console::printValue("Immediate steps: ", value);
+    } else if (sample_console::isCommand(line, "status")) {
+        USART_WRITE_S(motor.isMoving() ? "Moving\r\n" : "Stopped\r\n");
+    } else {
+        sample_console::printUnknownCommand();
+    }
 }
 
+}
 
-
-void setup(){
-
-    sc.init(2,3);
-
-
-	// Set reference voltage to AVcc with external capacitor at AREF pin
-	ADMUX |= (1 << REFS0);
-	ADMUX &= ~(1 << REFS1);
-		
-	// Enable the ADC and set the prescaler to max value (128)
-	ADCSRA = 0b10000111;
-
-
+int main() {
+    motor.init(2, 3);
     pinMode(2, OUTPUT);
     pinMode(3, OUTPUT);
-    pinMode(14, INPUT);
-    sc.setAcceleration(100);
+    sample_console::initialize();
+    sei();
+    motor.setAcceleration(3);
+    motor.setSpeed(400);
+    help();
 
-	USART_Init(MYUBRR);
-	sei(); //enable global interrupts
-
-}
-
-
-
-void loop() {
-	
-
-	readLine(buffer, BUFFER_SIZE); // Načtení příkazu
-	if (buffer[0] != '\0'){
-		USART_WRITE_S("GOT CMD\r");
-		delay(2);
-		USART_WRITE_S(buffer);
-		delay(2);
-		processCommand(buffer, sc);       // Zpracování příkazu
-	}
-
-
-}//loop
-
-
-
-
-
-int main(){				
-	setup();
-	while(true){
-		loop();
-	}
+    while (true) {
+        sample_console::readLine(command, sample_console::BUFFER_SIZE);
+        processCommand(command);
+    }
 }

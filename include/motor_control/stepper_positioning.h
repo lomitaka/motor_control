@@ -164,6 +164,7 @@ private:
     volatile static uint8_t stepper_count_;
     volatile static uint8_t step_pins_[MAX_STEPPERS];
     volatile static uint8_t dir_pins_[MAX_STEPPERS];
+    volatile static uint8_t dir_pins_value_[MAX_STEPPERS];
     volatile static int16_t current_speeds_[MAX_STEPPERS];
     volatile static uint16_t target_speeds_stp_ps_[MAX_STEPPERS];
     

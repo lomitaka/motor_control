@@ -48,8 +48,8 @@ private:
     volatile static uint16_t dc_motors_[5];
     //used to copy dc_motors_ and use these values, for next time cycle. 
     volatile static uint16_t dc_motors_buffer_[5];
-    //port and pin for each motor (0=disabled, else port in high nibble, pin in low nibble)
-    volatile static uint8_t dc_port_pwm_pin_[5];
+    //port and pin for each motor (-1=disabled, else port in high nibble, pin in low nibble)
+    volatile static int8_t dc_port_pwm_pin_[5];
 
     /// @brief pins where direction is set
     volatile static uint8_t dc_port_dir_pin_[5];

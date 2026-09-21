@@ -57,7 +57,7 @@ public:
     //MotorProps props;
     volatile static uint8_t curr_motor_i;
     uint8_t port_pin_;
-    uint8_t motor_index;
+    int8_t motor_index;
 };
 
 #endif // SERVO_CONTROL_H

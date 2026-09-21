@@ -1,30 +1,31 @@
-#include "motor_control/dc_control.h"
+#include "motor_control/servo_control.h"
 #include "sample_console.h"
 #include "arduino.h"
 #include <avr/interrupt.h>
-#include "usart.h"
 
 namespace {
 
-DCControl motor(5, 4);
+ServoControl servo(9);
 char command[sample_console::BUFFER_SIZE];
 
 void help() {
     sample_console::printHeader(
-        "DC driver test",
+        "Servo driver test",
         "set <value> | immediate <value> | stop | demo | help\r\n"
         "value range: -1000..1000");
 }
 
 void demo() {
-    USART_WRITE_S("DC demo: forward\r\n");
-    motor.setTarget(500);
-    delay(2000);
-    USART_WRITE_S("DC demo: reverse\r\n");
-    motor.setTarget(-500);
-    delay(2000);
-    motor.setTarget(0);
-    USART_WRITE_S("DC demo: stopped\r\n");
+    USART_WRITE_S("Servo demo: center -> left -> center -> right -> center\r\n");
+    servo.setTarget(0);
+    delay(1000);
+    servo.setTarget(-700);
+    delay(1500);
+    servo.setTarget(0);
+    delay(1000);
+    servo.setTarget(700);
+    delay(1500);
+    servo.setTarget(0);
 }
 
 void processCommand(const char *line) {
@@ -34,14 +35,14 @@ void processCommand(const char *line) {
     } else if (sample_console::isCommand(line, "demo")) {
         demo();
     } else if (sample_console::isCommand(line, "stop")) {
-        motor.setImmediate(0);
-        USART_WRITE_S("DC stopped\r\n");
+        servo.setImmediate(0);
+        USART_WRITE_S("Servo centered\r\n");
     } else if (sample_console::getArgument(line, "set", value)) {
-        motor.setTarget(value);
-        sample_console::printValue("DC target: ", value);
+        servo.setTarget(value);
+        sample_console::printValue("Servo target: ", value);
     } else if (sample_console::getArgument(line, "immediate", value)) {
-        motor.setImmediate(value);
-        sample_console::printValue("DC immediate: ", value);
+        servo.setImmediate(value);
+        sample_console::printValue("Servo immediate: ", value);
     } else {
         sample_console::printUnknownCommand();
     }
@@ -50,8 +51,7 @@ void processCommand(const char *line) {
 }
 
 int main() {
-    pinMode(5, OUTPUT);
-    pinMode(4, OUTPUT);
+    pinMode(9, OUTPUT);
     sample_console::initialize();
     sei();
     help();

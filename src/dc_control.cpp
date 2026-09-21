@@ -72,7 +72,7 @@ volatile uint16_t DCControl::dc_motors_[5] = {0, 0, 0, 0, 0};
 volatile uint16_t DCControl::dc_motors_buffer_[5] = {0, 0, 0, 0, 0};
 
 /// @brief pins where pwm signal is generated
-volatile uint8_t DCControl::dc_port_pwm_pin_[5] = {0, 0, 0, 0, 0};
+volatile int8_t DCControl::dc_port_pwm_pin_[5] = {-1, -1, -1, -1, -1};
 
 /// @brief pins where direction is set
 volatile uint8_t DCControl::dc_port_dir_pin_[5] = {0, 0, 0, 0, 0};
@@ -101,6 +101,11 @@ uint8_t DCControl::init(uint8_t pin_pwm, uint8_t pin_direction) {
         return ErrorCodes::ERROR_NO_FREE_MOTOR;
     }
     setDCMotorPortPin(motor_index_, port_pwm_index_,port_dir_index_); //port B, pin 0
+
+    // Initialize timer if not already done
+    if (!TimerControl::isInitialized()) {
+        TimerControl::setup_Timers();
+    }
 
     return ErrorCodes::NO_ERROR;
 }
@@ -134,7 +139,7 @@ uint8_t DCControl::getLastError() {
 
 int8_t DCControl::getDCFreeMotorIndex(){
     for (int8_t i = 0; i < 5; i++) {
-        if (dc_port_pwm_pin_[i] == 0) {
+        if (dc_port_pwm_pin_[i] == -1) {
             return i;
         }
     }
@@ -145,9 +150,9 @@ void DCControl::freeDCIndex(uint8_t index){
     /* goes over indexes, finds last non empty index, and clears it. 
     if no index found, then just clears item. */
     int8_t non_free_index = -1;
-    for (int8_t i = dc_motor_count_; i <= 0 ; i--){
+    for (int8_t i = dc_motor_count_; i >= 0 ; i--){
         if (index == i){continue;}
-        if (dc_port_pwm_pin_[i] != 0){
+        if (dc_port_pwm_pin_[i] != -1){
             non_free_index =i;
         }
     }
@@ -175,7 +180,7 @@ void DCControl::setDCMotorValue(uint8_t index, int16_t value)
         if (value < -1000) value = -1000;
         // dc_motors_ is 2 byte value, and there should be no way that this value will be updated only partially.
         cli();
-        dc_motors_[index] = value;
+        dc_motors_[index] = mabs(value);
         sei();
     }
 }
@@ -215,16 +220,18 @@ void OnTimer1OwerflowDC(){
     //for each of motors, find min pwm value, and put its index into dc_motors_off_order
     
     for (uint8_t i = 0;i < MAX_MOTOR_CNT;i++){
-        int8_t min_index = -1; 
+        int8_t min_index = 0; 
         uint16_t min_value = 65535;  // Maximum
-
+        bool min_presnet = false;
+        //finds min unmasked value. and adds it to dc_motors_off_order
         for (int8_t j = 0;j < MAX_MOTOR_CNT;j++){
             if ((DCControl::dc_motors_buffer_[min_index] < min_value) && !mask[j]){
                 min_index = (int8_t)j;
                 min_value = DCControl::dc_motors_buffer_[j];
+                min_presnet = true;
             }
         }
-        if (min_index >= 0){
+        if (min_presnet){
             mask[min_index] = true;
             DCControl::dc_motors_off_order[i] = min_index;
         }
