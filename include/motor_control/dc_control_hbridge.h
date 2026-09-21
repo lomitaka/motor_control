@@ -1,19 +1,19 @@
-#ifndef DC_CONTROL_H
-#define DC_CONTROL_H
+#ifndef DC_CONTROL_HBRIDGE_H
+#define DC_CONTROL_HBRIDGE_H
 
 #include <stdint.h>
 
-class DCControl {
+class DCControlHBridge {
 public:
-    DCControl();
+    DCControlHBridge();
 
-    DCControl(uint8_t pin_pwm);
+    DCControlHBridge(uint8_t pin_pwm, uint8_t pin_a, uint8_t pin_b);
 
-    uint8_t init(uint8_t pin_pwm);
+    uint8_t init(uint8_t pin_pwm, uint8_t pin_a, uint8_t pin_b);
 
-    void setTarget(uint16_t value);
+    void setTarget(int16_t value);
 
-    void setImmediate(uint16_t value);
+    void setImmediate(int16_t value);
 
     // Sets ramp speed in percent per 100 ms. Valid range: 25..5000.
     void setAcceleration(uint16_t percent_per_decisecond);
@@ -26,6 +26,8 @@ private:
     int8_t motor_index_;
     uint8_t error_code_;
 };
+
+using DCControlHBRidge = DCControlHBridge;
 
 #ifndef MOTOR_CONTROL_ERROR_CODES_DEFINED
 #define MOTOR_CONTROL_ERROR_CODES_DEFINED

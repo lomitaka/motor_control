@@ -58,9 +58,9 @@ int main() {
         servo3.setTarget(-500);   // -500
     } else if (testi == DC){
         std::cout << "Simulating dc motors" << std::endl;
-        DCControl dc1(9,1);
-        DCControl dc2(10,1);
-        DCControl dc3(11,1);
+        DCControl dc1(9);
+        DCControl dc2(10);
+        DCControl dc3(11);
         dc1.setTarget(000);
         dc2.setTarget(500);
         dc3.setTarget(900);

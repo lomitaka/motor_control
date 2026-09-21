@@ -14,7 +14,9 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 # Nastavte zdrojové soubory pro knihovnu
 set(LIBRARY_SOURCES
     src/timer_control.cpp
+    src/dc_control_common.cpp
     src/dc_control.cpp
+    src/dc_control_hbridge.cpp
     src/servo_control.cpp
     src/ramp.cpp
     src/arduino.cpp

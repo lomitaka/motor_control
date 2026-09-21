@@ -17,12 +17,12 @@ int main() {
     simulator.registerCompareMatchB_ISR(OnTimer1CompareMatchDC);
     simulator.registerDebugLog([](uint32_t) {});
 
-    DCControl motor(5, 4);
+    DCControl motor(5);
     motor.setTarget(100);
-    simulator.simulate(0.2, 62.5);
+    simulator.simulate(2.2, 62.5);
 
     motor.setTarget(0);
-    simulator.simulate(0.05, 62.5);
+    simulator.simulate(2.05, 62.5);
 
     simulator.logMotorLoads();
     std::cout << "DC simulation completed. Check dc_simulation.log and dc_simulation_load.log." << std::endl;

@@ -19,8 +19,10 @@ set(SIMULATOR_SOURCES
 # Zdrojové soubory vašeho kódu (bez arduino.cpp - použijeme mock)
 set(MOTOR_CONTROL_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/timer_control.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/dc_control_common.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/servo_control.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/dc_control.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/dc_control_hbridge.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/ramp.cpp
 )
 

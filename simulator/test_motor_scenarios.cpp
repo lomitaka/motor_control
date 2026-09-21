@@ -130,8 +130,8 @@ void test_dc_motor_pwm_sweep(AVRTimerSimulator& simulator) {
     simulator.registerCompareMatchA_ISR(OnTimer1CompareMatchDC);
     simulator.registerOverflow_ISR(OnTimer1OwerflowDC);
     
-    DCControl motor1(5, true);   // Pin 5, dopředu
-    DCControl motor2(6, false);  // Pin 6, dozadu
+    DCControl motor1(5);   // Pin 5, dopředu
+    DCControl motor2(6);  // Pin 6, dozadu
     
     // Rampa 0% -> 100% po 10% krocích
     for (int speed = 0; speed <= 100; speed += 10) {
@@ -155,7 +155,7 @@ void test_dc_motor_sharp_changes(AVRTimerSimulator& simulator) {
     simulator.registerCompareMatchA_ISR(OnTimer1CompareMatchDC);
     simulator.registerOverflow_ISR(OnTimer1OwerflowDC);
     
-    DCControl motor(5, true);
+    DCControl motor(5);
     
     std::cout << "Fáze 1: 0% (stop)" << std::endl;
     motor.setTarget(0);
@@ -188,8 +188,8 @@ void test_dc_motor_direction_change(AVRTimerSimulator& simulator) {
     simulator.registerCompareMatchA_ISR(OnTimer1CompareMatchDC);
     simulator.registerOverflow_ISR(OnTimer1OwerflowDC);
     
-    DCControl motorForward(5, true);   // Dopředu na pin 5
-    DCControl motorBackward(6, false); // Dozadu na pin 6
+    DCControl motorForward(5);   // Dopředu na pin 5
+    DCControl motorBackward(6); // Dozadu na pin 6
     
     std::cout << "Fáze 1: Dopředu 80%" << std::endl;
     motorForward.setTarget(80);
@@ -225,7 +225,7 @@ void test_dc_motor_fine_control(AVRTimerSimulator& simulator) {
     simulator.registerCompareMatchA_ISR(OnTimer1CompareMatchDC);
     simulator.registerOverflow_ISR(OnTimer1OwerflowDC);
     
-    DCControl motor(5, true);
+    DCControl motor(5);
     
     // Jemné ladění rychlosti kolem 50%
     int speeds[] = {45, 48, 50, 52, 55, 50, 45};
@@ -258,8 +258,8 @@ void test_mixed_motors(AVRTimerSimulator& simulator) {
     // Vytvoření motorů
     ServoControl servo1(9);
     ServoControl servo2(10);
-    DCControl dc1(5,1);
-    DCControl dc2(6,1);
+    DCControl dc1(5);
+    DCControl dc2(6);
     
     std::cout << "Fáze 1: Start - serva na 0°, DC na 30%" << std::endl;
     servo1.setTarget(0);
@@ -305,7 +305,7 @@ void test_stress_test(AVRTimerSimulator& simulator) {
     simulator.registerOverflow_ISR(OnTimer1OwerflowServo);
     
     ServoControl servo(9);
-    DCControl motor(5,1);
+    DCControl motor(5);
     
     // 100 změn po 50ms = 5 sekund
     for (int i = 0; i < 100; i++) {

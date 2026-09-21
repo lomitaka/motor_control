@@ -6,14 +6,14 @@
 
 namespace {
 
-DCControl motor(5, 4);
+DCControl motor(5);
 char command[sample_console::BUFFER_SIZE];
 
 void help() {
     sample_console::printHeader(
         "DC driver test",
         "set <value> | immediate <value> | stop | demo | help\r\n"
-        "value range: -1000..1000");
+        "value range: 0..1000");
 }
 
 void demo() {
@@ -21,7 +21,7 @@ void demo() {
     motor.setTarget(500);
     delay(2000);
     USART_WRITE_S("DC demo: reverse\r\n");
-    motor.setTarget(-500);
+    motor.setTarget(1000);
     delay(2000);
     motor.setTarget(0);
     USART_WRITE_S("DC demo: stopped\r\n");
@@ -36,10 +36,10 @@ void processCommand(const char *line) {
     } else if (sample_console::isCommand(line, "stop")) {
         motor.setImmediate(0);
         USART_WRITE_S("DC stopped\r\n");
-    } else if (sample_console::getArgument(line, "set", value)) {
+    } else if (sample_console::getArgument(line, "set", value) && value >= 0) {
         motor.setTarget(value);
         sample_console::printValue("DC target: ", value);
-    } else if (sample_console::getArgument(line, "immediate", value)) {
+    } else if (sample_console::getArgument(line, "immediate", value) && value >= 0) {
         motor.setImmediate(value);
         sample_console::printValue("DC immediate: ", value);
     } else {
@@ -51,7 +51,6 @@ void processCommand(const char *line) {
 
 int main() {
     pinMode(5, OUTPUT);
-    pinMode(4, OUTPUT);
     sample_console::initialize();
     sei();
     help();
