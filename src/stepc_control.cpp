@@ -7,7 +7,7 @@
 #endif
 
 #include "motor_control/stepper_continuous.h"
-#include "internals/step_timer_control.h"
+#include "internals/stepc_timer_control.h"
 #include "internals/arduino.h"
 #include "internals/fces.h"
 
@@ -29,7 +29,7 @@ using namespace motor_control_internals;
  * - Range: 3 ticks (48μs, 20kHz) to 65535 ticks (1.05s, 0.95Hz)
  * 
  * Accumulator Algorithm:
- * - Each ISR adds 7 ticks to each motor's accumulator
+ * - Each ISR adds 8 ticks to each motor's accumulator
  * - When accumulator >= step_interval: generate step, subtract interval
  * - Handles acceleration smoothly: current_speed → target_speed
  * 
@@ -37,7 +37,7 @@ using namespace motor_control_internals;
  */
 
 // Timer constants
-constexpr uint8_t ISR_PERIOD_TICKS = 7;      // ISR every 7 ticks (112μs @ 16μs/tick)
+constexpr uint8_t ISR_PERIOD_TICKS = 8;      // ISR every 8 ticks (128μs @ 16μs/tick)
 constexpr uint16_t TICK_PERIOD_US = 16;      // 16μs per timer tick @ prescaler 256
 constexpr uint8_t ACCEL_UPDATE_DIVIDER = 100; // Update acceleration every 100 ISR ticks (11.2ms)
 constexpr uint32_t TICKS_PER_SECOND = 62500; // 1000000μs / 16μs/tick
@@ -95,6 +95,7 @@ uint8_t StepperContinuous::init(uint8_t step_pin, uint8_t dir_pin) {
     digitalWrite(dir_pin_, LOW);
     
     // Register motor in static arrays
+    uint8_t saved_sreg = SREG;
     cli();
     step_pins_[motor_index_] = step_pin_;
     dir_pins_[motor_index_] = dir_pin_;
@@ -102,7 +103,7 @@ uint8_t StepperContinuous::init(uint8_t step_pin, uint8_t dir_pin) {
     target_speeds_[motor_index_] = 0;
     step_accumulators[motor_index_] = 0;
     step_intervals[motor_index_] = 62500; // 1 Hz (very slow, essentially stopped)
-    sei();
+    SREG = saved_sreg;
     
     // Initialize timer if not already done
     if (!StepCTimerControl::isInitialized()) {
@@ -210,9 +211,10 @@ void StepperContinuous::updateAccelerationRate() {
     
     if (speed_change == 0) speed_change = 1; // Minimum change of 1 step/s
     
+    uint8_t saved_sreg = SREG;
     cli();
     interval_changes[motor_index_] = speed_change;
-    sei();
+    SREG = saved_sreg;
 }
 
 /**

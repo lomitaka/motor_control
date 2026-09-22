@@ -10,6 +10,13 @@
 #include <stddef.h>
 #include <stdint.h>
 
+enum class TimerMode : uint8_t {
+    Unconfigured,
+    DcServo,
+    StepperContinuous,
+    StepperPositioning
+};
+
 /*
  * Timer1 runs in CTC mode with a 4 ms period at 16 MHz.
  * TIMER1_COMPA_vect starts each software-PWM period and TIMER1_COMPB_vect
@@ -24,6 +31,12 @@ public:
     // Enable global interrupts from main() after application initialization.
     static void setup_Timers();
     static bool isInitialized();
+
+    /** Selects the driver family currently owning Timer1. */
+    static void setTimerMode(TimerMode mode);
+
+    /** Returns the driver family currently owning Timer1. */
+    static TimerMode getTimerMode();
 
     // Returns the most recent TimerControl error code.
     static int getLastError();
@@ -41,6 +54,7 @@ public:
 
     static void Timer1_Init();
     static bool initialized;
+    static volatile TimerMode timer_mode_;
 
     friend void OnTimer1CompareMatchDC();
     friend void OnTimer1OwerflowDC();

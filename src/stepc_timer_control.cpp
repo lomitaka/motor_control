@@ -1,4 +1,5 @@
-#include "internals/step_timer_control.h"
+#include "internals/stepc_timer_control.h"
+#include "internals/timer_control.h"
 
 #ifdef SIMULATION_MODE
     #include "simulator/avr_mock.h"
@@ -18,6 +19,9 @@ bool StepCTimerControl::initialized_ = false;
  * - Interrupts: Compare Match A only.
  */
 void StepCTimerControl::Timer1_Init() {
+    uint8_t saved_sreg = SREG;
+    cli();
+
     // Clear timer configuration
     TCCR1A = 0;
     TCCR1B = 0;
@@ -37,19 +41,11 @@ void StepCTimerControl::Timer1_Init() {
     TCCR1B = (1 << WGM12) | (1 << CS12);
     
     initialized_ = true;
+    TimerControl::setTimerMode(TimerMode::StepperContinuous);
+    SREG = saved_sreg;
 }
 
 bool StepCTimerControl::isInitialized() {
     return initialized_;
 }
 
-// Timer1 Compare Match A ISR - calls stepper motor handler
-#ifdef SIMULATION_MODE
-ISR(TIMER1_COMPA_vect) {
-    OnTimer1StepperContinuousISR();
-}
-#else
-ISR(TIMER1_COMPA_vect) {
-    OnTimer1StepperContinuousISR();
-}
-#endif

@@ -202,13 +202,14 @@ uint8_t StepperPositioning::init(uint8_t step_pin, uint8_t dir_pin) {
     digitalWrite(dir_pin_, LOW);
     
     // Register motor in static arrays
+    uint8_t saved_sreg = SREG;
     cli();
     step_pins_[motor_index_] = step_pin_;
     dir_pins_[motor_index_] = dir_pin_;
     target_speeds_stp_ps_[motor_index_] = 200;
     remaining_ticks[motor_index_] = 0;
     braking_distance[motor_index_] = 0;
-    sei();
+    SREG = saved_sreg;
     
     // Initialize timer if not already done
     if (!SteppTimerControl::isInitialized()) {

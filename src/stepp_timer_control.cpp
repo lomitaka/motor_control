@@ -1,4 +1,5 @@
 #include "internals/stepp_timer_control.h"
+#include "internals/timer_control.h"
 
 #ifdef SIMULATION_MODE
     #include "simulator/avr_mock.h"
@@ -19,6 +20,9 @@ bool SteppTimerControl::initialized_ = false;
  * - Interrupts: Compare Match A, Compare Match B, and overflow.
  */
 void SteppTimerControl::Timer1_Init() {
+    uint8_t saved_sreg = SREG;
+    cli();
+
     // Clear timer configuration
     TCCR1A = 0;
     TCCR1B = 0;
@@ -38,36 +42,12 @@ void SteppTimerControl::Timer1_Init() {
     TCCR1B = (1 << CS10);
     
     initialized_ = true;
+    TimerControl::setTimerMode(TimerMode::StepperPositioning);
+    SREG = saved_sreg;
 }
 
 bool SteppTimerControl::isInitialized() {
     return initialized_;
 }
 
-
-ISR(TIMER1_OVF_vect){
-    OnTimer1StepperPositioningOverflow();
-}
-
-// Timer1 Compare Match A ISR - rising edges and scheduling
-#ifdef SIMULATION_MODE
-ISR(TIMER1_COMPA_vect) {
-    OnTimer1StepperPositioningOCRA();
-}
-#else
-ISR(TIMER1_COMPA_vect) {
-    OnTimer1StepperPositioningOCRA();
-}
-#endif
-
-// Timer1 Compare Match B ISR - falling edges
-#ifdef SIMULATION_MODE
-ISR(TIMER1_COMPB_vect) {
-    OnTimer1StepperPositioningOCRB();
-}
-#else
-ISR(TIMER1_COMPB_vect) {
-    OnTimer1StepperPositioningOCRB();
-}
-#endif
 

@@ -23,7 +23,6 @@ set(MOTOR_CONTROL_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/servo_control.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/dc_control.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/dc_control_hbridge.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src/ramp.cpp
 )
 
 # Zdrojové soubory pro stepper motor control

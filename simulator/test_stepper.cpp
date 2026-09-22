@@ -1,5 +1,5 @@
 #include "motor_control/stepper_continuous.h"
-#include "internals/step_timer_control.h"
+#include "internals/stepc_timer_control.h"
 #include "internals/arduino.h"
 
 
