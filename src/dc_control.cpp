@@ -1,4 +1,5 @@
 #include "motor_control/dc_control.h"
+#include "internals/arduino.h"
 #include "internals/dc_scheduler.h"
 #include "internals/timer_control.h"
 
@@ -13,6 +14,7 @@ DCControl::DCControl(uint8_t pin_pwm)
 
 uint8_t DCControl::init(uint8_t pin_pwm) {
     // A basic DC motor uses only one output: the scheduler generates PWM on it.
+    motor_control_internals::pinMode(pin_pwm, OUTPUT);
     motor_index_ = dc_control_internal::registerMotor(pin_pwm, 0, 0, false);
     if (motor_index_ < 0) {
         error_code_ = ErrorCodes::ERROR_NO_FREE_MOTOR;

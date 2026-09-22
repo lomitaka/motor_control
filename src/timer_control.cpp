@@ -117,8 +117,6 @@ ISR(TIMER1_COMPB_vect) {
 void OnTimer1OwerflowServo();
 void OnTimer1OwerflowDC();
 
-extern char serv_dbg[64];
-
 // In CTC mode Compare A is the PWM period boundary, not a hardware overflow.
 ISR(TIMER1_COMPA_vect) {
     switch (TimerControl::getTimerMode()) {

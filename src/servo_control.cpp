@@ -44,6 +44,7 @@ ServoControl::ServoControl(uint8_t pin) {
         TimerControl::setup_Timers();
     }
     port_pin_ = pin;
+    pinMode(port_pin_, OUTPUT);
     motor_index = getServFreeMotorIndex(); //register motor
 
     if (motor_index < 0 ) return; //error, no free motor
@@ -134,8 +135,7 @@ void OnTimer1CompareMatchServo(){
 // max = 2ms = 2 000 000 ns = 32000 ticks
 //rescaling inpug value interval (-1000, 1000) to > (16000,32000)
 void OnTimer1OwerflowServo(){
-    //serv_dbg[0] = 'a';
-   // DDRB |= (1 << (3)); PORTB |= (1 << (3));
+
     ServoControl::curr_motor_i = (ServoControl::curr_motor_i +1) % 5;
     
     if (ServoControl::serv_pin_[ServoControl::curr_motor_i] > 0){

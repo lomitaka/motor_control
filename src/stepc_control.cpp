@@ -88,9 +88,9 @@ uint8_t StepperContinuous::init(uint8_t step_pin, uint8_t dir_pin) {
     motor_index_ = stepper_count_;
     stepper_count_++;
     
-    // Configure pins
-    //pinMode(step_pin_, OUTPUT);
-    //pinMode(dir_pin_, OUTPUT);
+    // Configure pins owned by this driver before writing their initial state.
+    pinMode(step_pin_, OUTPUT);
+    pinMode(dir_pin_, OUTPUT);
     digitalWrite(step_pin_, LOW);
     digitalWrite(dir_pin_, LOW);
     

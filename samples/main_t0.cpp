@@ -50,7 +50,6 @@ void processCommand(const char *line) {
 }
 
 int main() {
-    pinMode(5, OUTPUT);
     sample_console::initialize();
     sei();
     help();

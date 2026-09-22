@@ -1,4 +1,5 @@
 #include "motor_control/dc_control_hbridge.h"
+#include "internals/arduino.h"
 #include "internals/dc_scheduler.h"
 #include "internals/timer_control.h"
 
@@ -13,6 +14,9 @@ DCControlHBridge::DCControlHBridge(uint8_t pin_pwm, uint8_t pin_a, uint8_t pin_b
 
 uint8_t DCControlHBridge::init(uint8_t pin_pwm, uint8_t pin_a, uint8_t pin_b) {
     // The shared scheduler owns PWM timing; this class only supplies H-bridge pins.
+    motor_control_internals::pinMode(pin_pwm, OUTPUT);
+    motor_control_internals::pinMode(pin_a, OUTPUT);
+    motor_control_internals::pinMode(pin_b, OUTPUT);
     motor_index_ = dc_control_internal::registerMotor(pin_pwm, pin_a, pin_b, true);
     if (motor_index_ < 0) {
         error_code_ = ErrorCodes::ERROR_NO_FREE_MOTOR;

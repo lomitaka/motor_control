@@ -77,10 +77,6 @@ void processCommand(const char *line) {
 }
 
 int main() {
-    pinMode(PWM_PIN, OUTPUT);
-    pinMode(DIRECTION_A_PIN, OUTPUT);
-    pinMode(DIRECTION_B_PIN, OUTPUT);
-
     sample_console::initialize();
     motor.setAcceleration(acceleration);
     sei();

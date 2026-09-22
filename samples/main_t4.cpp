@@ -62,8 +62,6 @@ void processCommand(const char *line) {
 
 int main() {
     motor.init(2, 3);
-    pinMode(2, OUTPUT);
-    pinMode(3, OUTPUT);
     sample_console::initialize();
     sei();
     motor.setAcceleration(3);
