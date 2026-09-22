@@ -15,22 +15,32 @@
 class ServoControl {
 public:
 
+    /**
+     * Creates and registers a servo output.
+     * @param pin Arduino pin used for the servo pulse output.
+     */
     ServoControl(uint8_t pin);
 
-    ~ServoControl() ;
-    // Set target: for DC/stepper -> speed (-1000..1000), for servo -> angle (radians) depending on implementation
+
+    /**
+     * Sets the requested servo pulse value.
+     * @param value Nominal range -1000..1000 maps approximately to 1..2 ms.
+     *        The implementation accepts and clamps -2000..2000, extending the
+     *        generated pulse range beyond the nominal servo range.
+     */
     void setTarget(int16_t value);
     
-    // Immediately set output (no ramp) — useful for calibration/emergency
+    /**
+     * Sets the servo pulse value immediately.
+     * @param value Same range and clamping as setTarget(). The current
+     *        implementation has no separate servo ramp, so this behaves the
+     *        same as setTarget().
+     */
     void setImmediate(int16_t value);
 
-    // Configure ramping: type and time to reach target (milliseconds)
-    void configureRamp(int16_t rampTime_ms);
     
-    //in case of failure, get last error code
-    int getLastError();
 
-//private:
+private:
     
     // Set motor value in range [-1000, 1000] for given index (0-4)
     static void setServMotorValue(uint8_t index, int16_t value);
@@ -43,7 +53,7 @@ public:
     
     //detaches motor from given index
     void freeServIndex(uint8_t index);
-public:
+//public:
     //how many motors are registered
     volatile static uint8_t serv_motor_count_;
     //motor values currently set (-1000 to 1000)

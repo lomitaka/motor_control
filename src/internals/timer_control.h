@@ -11,42 +11,33 @@
 #include <stdint.h>
 
 /*
-    //how it works (Servo approach)
-    - Timer 1 is set to 4ms overflow period (16MHz / 1 prescaler / 65536 counts = 244 Hz → 4.096 ms)
-    each cycle one servo motor is handled (5 motors max)
-     on the beginning of the cycle the pin is set HIGH, and compare match is set according to motor value
-        when compare match occurs, pin is set LOW
-    - thus each motor gets a pulse every 20ms (5 motors x 4ms)
-    
-       
-    
-*/
+ * Timer1 runs in CTC mode with a 4 ms period at 16 MHz.
+ * TIMER1_COMPA_vect starts each software-PWM period and TIMER1_COMPB_vect
+ * creates falling edges for DC PWM and servo pulses. Five servo slots are
+ * multiplexed over five periods, so each servo receives one pulse per 20 ms.
+ */
 
 class TimerControl {
 public:
 
-    static  void setup_Timers();
+    // Configures Timer1 but deliberately does not call sei().
+    // Enable global interrupts from main() after application initialization.
+    static void setup_Timers();
     static bool isInitialized();
 
-    //in case of failure, get last error code
+    // Returns the most recent TimerControl error code.
     static int getLastError();
     
-    static  void setPinHigh(uint8_t port_pin_code);
-    static  void setPinLow(uint8_t port_pin_code);
+    // port_pin_code stores the port in the high nibble and pin in the low nibble.
+    static void setPinHigh(uint8_t port_pin_code);
+    static void setPinLow(uint8_t port_pin_code);
   
 //private:
     volatile size_t timeSinceStart_;
 
 
-    //dc motors:
-    volatile static uint8_t curr_dc_index;
-    volatile static uint16_t curr_dc_value;
-
-
-    //last error codes for each motor
+    // Last error codes for each motor.
     volatile static uint8_t last_error_[5];
-    //global last error code
-    volatile static uint8_t last_error_global;
 
     static void Timer1_Init();
     static bool initialized;

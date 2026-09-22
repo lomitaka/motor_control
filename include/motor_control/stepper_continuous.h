@@ -7,9 +7,9 @@
  * 
  * Timer Configuration:
  * - Prescaler: 256 → Timer freq = 62.5 kHz, tick = 16 μs
- * - ISR frequency: 8928 Hz (every 112μs, 7 ticks)
+ * - ISR frequency: 7812.5 Hz (every 128 us, 8 ticks)
  * - CTC mode with OCR1A = 7
- * - Cannot run simultaneously with DC/Servo control (different timer config)
+ * - Cannot run simultaneously with DC, H-bridge, servo, or positioning-stepper control
  * 
  * @example
  * StepperContinuous motor(2, 3);       // STEP=pin2, DIR=pin3
@@ -51,7 +51,7 @@ public:
      * @brief Initialize stepper motor pins
      * @param step_pin Arduino pin number for STEP signal
      * @param dir_pin Arduino pin number for DIR signal
-     * @return 0 on success, error code otherwise
+    * @return 0 on success; 1 if all five stepper slots are already in use
      */
     uint8_t init(uint8_t step_pin, uint8_t dir_pin);
     
@@ -104,7 +104,7 @@ public:
     
     /**
      * @brief Check if motor is currently moving
-     * @return true if speed > 0, false if stopped
+    * @return true when current speed is non-zero, false when stopped
      */
     bool isMoving();
 

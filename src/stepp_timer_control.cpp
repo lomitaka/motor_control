@@ -9,6 +9,15 @@
 
 bool SteppTimerControl::initialized_ = false;
 
+/**
+ * Configuration summary:
+ * - Mode: normal mode, counter overflows from 65535 to 0.
+ * - Clock: 16 MHz, no prescaler (CS10 = 1), 62.5 ns timer tick.
+ * - Overflow: every 65536 ticks, or 4.096 ms.
+ * - OCR1A: dynamically scheduled STEP rising edges.
+ * - OCR1B: dynamically scheduled STEP falling edges.
+ * - Interrupts: Compare Match A, Compare Match B, and overflow.
+ */
 void SteppTimerControl::Timer1_Init() {
     // Clear timer configuration
     TCCR1A = 0;

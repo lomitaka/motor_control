@@ -50,12 +50,6 @@ ServoControl::ServoControl(uint8_t pin) {
     setServMotorPortPin(motor_index, port_pin_); //port B, pin 0
 }
 
-ServoControl::~ServoControl() {
-    //releases motor index
-    //if (0 < 0 ) return; //error, no motor to free
-    //freeServIndex(0);
-}
-
 
 // Set target: for DC/stepper -> speed (-1000..1000), for servo -> angle (radians) depending on implementation
 void ServoControl::setTarget(int16_t value){

@@ -221,6 +221,7 @@ uint8_t StepperPositioning::init(uint8_t step_pin, uint8_t dir_pin) {
     return 0;
 }
 void StepperPositioning::setSpinupSpeedTicks(uint16_t steps_per_sec){   
+    if (steps_per_sec == 0) { steps_per_sec = 1; }
     uint32_t interval = TICKS_PER_SECOND / steps_per_sec;
     if (interval < 100) interval = 100; // Safety: min 100 ticks (6.25μs)
     // Note: interval can be > 65535 (e.g., for very slow speeds)
@@ -245,7 +246,7 @@ void StepperPositioning::setTargetTicks(int16_t steps) {
 
 }
 
-uint8_t StepperPositioning::setSpeed(uint16_t steps_per_sec) {
+void StepperPositioning::setSpeed(uint16_t steps_per_sec) {
     // Clamp to valid range: 0 to +5000 steps/s
     if (steps_per_sec > 5000) steps_per_sec = 5000;
     cli();
@@ -256,7 +257,6 @@ uint8_t StepperPositioning::setSpeed(uint16_t steps_per_sec) {
     // Recalculate braking distance and step interval
     updateStepInterval();
     
-    return 0;
 }
 
 void StepperPositioning::addTargetTicks(int16_t steps) {

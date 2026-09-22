@@ -15,7 +15,7 @@
  * Timer Configuration:
  * - Prescaler: 256 → Timer freq = 16 MHz / 256 = 62.5 kHz
  * - Tick period: 16 μs
- * - CTC mode with OCR1A = 7 → 7 × 16μs = 112 μs period (8928 Hz ISR)
+ * - CTC mode with OCR1A = 7 -> 8 x 16 us = 128 us period (7812.5 Hz ISR)
  * - Max speed: ~10000 steps/s per motor (allows ~11 ticks per step)
  * - Good resolution for 0-3000 RPM range
  */
@@ -26,7 +26,7 @@ public:
      * 
      * Sets up Timer1 in CTC mode with:
      * - Prescaler 256 (CS12=1)
-     * - OCR1A = 625 (10ms period, 100 Hz)
+    * - OCR1A = 7 (128 us period, 7812.5 Hz)
      * - Compare Match A interrupt enabled
      */
     static void Timer1_Init();

@@ -14,14 +14,8 @@
 
 #include "stddef.h"
 
-//singleton implementation of timer control (to controll timer1)
-//TimerControl timer_control;
-
-// Definice static členských proměnných
-
-//volatile uint16_t TimerControl::curr_dc_value = 0;
+// Shared Timer1 configuration state.
 volatile uint8_t TimerControl::last_error_[5] = {0, 0, 0, 0, 0};
-volatile uint8_t TimerControl::last_error_global = 0;
 bool TimerControl::initialized = false;
 
 
@@ -30,37 +24,21 @@ bool  TimerControl::isInitialized(){
     return initialized;
 }
 
-int TimerControl::getLastError()
-{
-    return last_error_global;
-}
 
-
-
-/// Initializes Timer1 for precise timing control.
-/// 
+/// Initializes Timer1 for DC motor and servo software PWM.
+///
 /// Configuration summary:
-/// - Timer1 runs in **CTC mode** (Clear Timer on Compare Match A).
-/// - Compare Match A interrupt (OCIE1A), Compare Match B (OCIE1B), and Overflow interrupt (TOIE1) are enabled.
-/// - Compare value (OCR1A = 63999) defines the period (timer resets at this value).
-/// - No prescaler is used (CS10 = 1), so timer runs at full CPU clock speed.
-///
-/// For example, with a 16 MHz clock:
-///   - Each timer tick = 1 / 16,000,000 s = 62.5 ns
-///   - OCR1A = 63999 → CTC period = 64000 × 62.5 ns = 4 ms
-///   - PWM frequency = 250 Hz
-///   - Compare Match A defines the period (timer resets to 0)
-///   - Compare Match B is dynamically scheduled for motor PWM falling edges
-///
-/// This setup generates software PWM for DC motors and servo control.
-/// (Compare Match B triggers ISR to set pins LOW at duty cycle points,
-///  Overflow ISR sets pins HIGH for the next PWM cycle.)
+/// - Mode: CTC (WGM12 = 1), counter resets at Compare Match A.
+/// - Clock: 16 MHz, no prescaler (CS10 = 1), 62.5 ns timer tick.
+/// - OCR1A: 63999, giving a 4 ms PWM period (250 Hz).
+/// - Interrupts: Compare A starts each period; Compare B creates PWM falling edges.
+/// - Servo pulses are multiplexed over five 4 ms periods, yielding a 20 ms refresh period.
 void TimerControl::Timer1_Init() {
     
-    TCNT1 = 0;                           // Reset timer counter
-    OCR1A = 63999;                       //
-    OCR1B = 63999;                       // Set initial compare value so it wont trigger before first overflow
-    TIMSK1 = (1 << OCIE1A) |  (1 << OCIE1B)  | (1 << TOIE1); // Enable Compare A,B Match and Overflow interrupts
+    TCNT1 = 0;                           // Reset timer counter.
+    OCR1A = 63999;                       // 64,000 ticks at 16 MHz = 4 ms.
+    OCR1B = 63999;                       // Avoid a Compare B event before the first period callback.
+    TIMSK1 = (1 << OCIE1A) | (1 << OCIE1B) | (1 << TOIE1);
     TCCR1A = 0;                          // Normal mode (no PWM)
     TCCR1B =  (1 << WGM12) | (1 << CS10);//  Clears timer on Compare match A, Prescaler = 1 → timer runs at full CPU speed
 }
@@ -99,9 +77,8 @@ void TimerControl::setup_Timers() {
 void OnTimer1CompareMatchDC();
 void OnTimer1CompareMatchServo();
 
-// ISRs must be outside the class, but can call static member functions or access static members
+// AVR interrupt vectors must be free functions rather than class members.
 ISR(TIMER1_COMPB_vect) {	
-    //OnTimer1CompareMatchDC();
     OnTimer1CompareMatchServo();
     OnTimer1CompareMatchDC();
     
@@ -112,6 +89,7 @@ void OnTimer1OwerflowDC();
 
 extern char serv_dbg[64];
 
+// In CTC mode Compare A is the PWM period boundary, not a hardware overflow.
 ISR(TIMER1_COMPA_vect) {
     OnTimer1OwerflowServo();
     OnTimer1OwerflowDC();

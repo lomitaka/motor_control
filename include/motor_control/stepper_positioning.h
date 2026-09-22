@@ -15,7 +15,7 @@
  * 
  * @example
  * StepperPositioning motor(2, 3);       // STEP=pin2, DIR=pin3
- * motor.setAcceleration(500);           // 500 steps/s² acceleration
+ * motor.setAcceleration(3);             // Ramp aggressiveness, 1..5
  * motor.setSpeed(1000);                 // Maximum speed: 1000 steps/s
  * motor.setTargetTicks(200);            // Move 200 steps with acceleration
  * motor.addTargetTicks(-100);           // Move 100 steps back
@@ -62,15 +62,16 @@ public:
      * @brief Initialize stepper motor pins
      * @param step_pin Arduino pin number for STEP signal
      * @param dir_pin Arduino pin number for DIR signal
-     * @return 0 on success, error code otherwise
+    * @return 0 on success; 1 if all five stepper slots are already in use
      */
     uint8_t init(uint8_t step_pin, uint8_t dir_pin);
     
 
-    /*
-      Sets initial ticking speed for the moment when motor is spining up. 
-      if is set speed that is slower than steps_per_sec, it is considered as stop speed.
-    */
+    /**
+     * Sets the initial speed used when a positioning move starts.
+     * @param steps_per_sec Initial speed in steps/s. It must be greater than
+     *        value is clamped by 1 as lowest
+     */
     void setSpinupSpeedTicks(uint16_t steps_per_sec);
 
 
@@ -79,42 +80,40 @@ public:
      * @param steps          Number of steps to move
      *                      - Positive values: clockwise rotation
      *                      - Negative values: counter-clockwise rotation
-     *                      - Zero: smooth stop (with deceleration)
+     *                      - Zero: clears the remaining movement
      * 
      * Motor will accelerate to target speed, then decelerate to stop at target position.
-     * If the requested steps are less than the braking distance needed to stop,
-     * the command is rejected and returns error code 1.
+    * This method replaces the current remaining-step value; use
+    * addTargetTicks() to extend an already running move.
      */
      void setTargetTicks(int16_t steps);
 
 /**
      * @brief Set target speed for positioning movements
      * @param steps_per_sec  Target speed in steps per second
-     *                      - Range: -5000 to +5000 steps/s (clamped automatically)
-     *                      - This speed will be used during constant-speed phase of movement
-     * @return              0 on success
+    *                      - Range: 0 to 5000 steps/s (clamped automatically)
+     *                      - This speed will be used during constant-speed phase of movement    * @return              Always 0 in the current implementation
      * 
      * Does not start motor movement, just sets the speed motor should reach during
      * positioning. Automatically recalculates braking distance based on this speed.
-     * Initial value: 0 steps/s (motor stopped)
-     * Note: any speed that is slower than spinupSpeed is considered as stop speed.
+    * A value of zero disables step scheduling. The default configured speed
+    * after init() is 200 steps/s.
      */
-    uint8_t setSpeed(uint16_t steps_per_sec);
+    void setSpeed(uint16_t steps_per_sec);
 
     /**
      * @brief Add steps to current target position
      * @param steps         Steps to add to current target (can be negative)
      * 
-     * Modifies the current remaining tick count. May fail if the resulting
-     * target position would require more braking distance than available.
+    * Modifies the current remaining-step count. The sum is stored directly;
+    * callers should avoid overflowing the int16_t range.
      */
     void addTargetTicks(int16_t steps);
     
     /**
      * @brief Set acceleration/deceleration rate
-     * @param percent_increase speed change in percents. (valid values 1-5)
-     * 
-     * Automatically recalculates braking distance when changed.
+    * @param percent_increase Ramp aggressiveness. Values are clamped to 1..5.
+    *        Higher values make the interval change faster.
      */
     void setAcceleration(uint8_t percent_increase);
     
@@ -135,7 +134,8 @@ public:
     
     /**
      * @brief Check if motor is currently moving
-     * @return true if motor has remaining steps or non-zero speed, false if stopped
+    * @return true if the motor has non-zero remaining steps; false otherwise.
+    *         The current implementation checks remaining steps only.
      */
     bool isMoving();
 
