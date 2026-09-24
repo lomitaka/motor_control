@@ -54,8 +54,50 @@ if(TARGET_AVR)
         ${CMAKE_SOURCE_DIR}
     )
 
+    # Per-driver artifacts named <chip>_<driver>_timer<N>. Each one owns
+    # Timer1 exclusively, so distributed users only get the ISR set they need.
+    function(add_motor_control_variant name)
+        add_library(${name} STATIC ${ARGN})
+        target_include_directories(${name} PUBLIC
+            ${CMAKE_SOURCE_DIR}/include
+            ${CMAKE_SOURCE_DIR}
+        )
+    endfunction()
+
+    add_motor_control_variant(motor_control_${MCU}_dcservo_timer1
+        src/timer_control.cpp
+        src/dc_control_common.cpp
+        src/dc_control.cpp
+        src/dc_control_hbridge.cpp
+        src/servo_control.cpp
+        src/arduino.cpp
+    )
+
+    add_motor_control_variant(motor_control_${MCU}_stepc_timer1
+        src/stepc_control.cpp
+        src/stepc_timer_control.cpp
+        src/arduino.cpp
+    )
+
+    # Timer0 register setup is deferred; this target builds but does not step yet.
+    add_motor_control_variant(motor_control_${MCU}_stepc_timer0
+        src/stepc_control.cpp
+        src/stepc_timer0_control.cpp
+        src/arduino.cpp
+    )
+
+    add_motor_control_variant(motor_control_${MCU}_stepp_timer1
+        src/stepp_control.cpp
+        src/stepp_timer_control.cpp
+        src/arduino.cpp
+    )
+
     # Instalace knihovny a hlavičkových souborů
-    install(TARGETS motor_control_lib 
+    install(TARGETS motor_control_lib
+        motor_control_${MCU}_dcservo_timer1
+        motor_control_${MCU}_stepc_timer1
+        motor_control_${MCU}_stepc_timer0
+        motor_control_${MCU}_stepp_timer1
         ARCHIVE DESTINATION lib
         LIBRARY DESTINATION lib
     )

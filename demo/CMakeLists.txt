@@ -17,15 +17,13 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../include)
 # Nastavte zdrojové soubory
 set(SOURCES
     #main.cpp
-    usart.cpp
     arduino.cpp
-    sample_console.cpp
-    ../include/motor_control/debug.h
-    ../include/motor_control/stepper_positioning.h
+    usart.cpp
+    #../include/motor_control/stepper_positioning.h
 )
 
-if("${SAMPLE_NO}" STREQUAL "0")
-    list(APPEND SOURCES main_t0.cpp)
+if("${SAMPLE_NO}" STREQUAL "DC")
+    list(APPEND SOURCES main_dc.cpp)
 elseif("${SAMPLE_NO}" STREQUAL "1")
     list(APPEND SOURCES main_t1.cpp)
 elseif("${SAMPLE_NO}" STREQUAL "2")
@@ -34,8 +32,6 @@ elseif("${SAMPLE_NO}" STREQUAL "3")
     list(APPEND SOURCES main_t3.cpp)
 elseif("${SAMPLE_NO}" STREQUAL "4")
     list(APPEND SOURCES main_t4.cpp)
-elseif("${SAMPLE_NO}" STREQUAL "5")
-    list(APPEND SOURCES main_t5.cpp)
 else()
     message(FATAL_ERROR "Unknown test: ${TEST}")
 endif()
@@ -75,43 +71,27 @@ endif()
 
 if(TARGET_AVR)
     # Vytvoření spustitelného souboru pro AVR
-    add_executable(line_follower.elf ${SOURCES})
+    add_executable(demo.elf ${SOURCES})
     
     # Linkování motor_control knihovny
-    target_link_libraries(line_follower.elf ${CMAKE_CURRENT_SOURCE_DIR}/../build/libmotor_control_lib.a)
-
-    if("${SAMPLE_NO}" STREQUAL "0")
-        target_link_libraries(line_follower.elf ${CMAKE_CURRENT_SOURCE_DIR}/../build/libmotor_control_atmega328p_dcservo_timer1.a)
-    elseif("${SAMPLE_NO}" STREQUAL "1")
-        target_link_libraries(line_follower.elf ${CMAKE_CURRENT_SOURCE_DIR}/../build/libmotor_control_atmega328p_dcservo_timer1.a)
-    elseif("${SAMPLE_NO}" STREQUAL "2")
-        target_link_libraries(line_follower.elf ${CMAKE_CURRENT_SOURCE_DIR}/../build/libmotor_control_atmega328p_dcservo_timer1.a)
-    elseif("${SAMPLE_NO}" STREQUAL "3")
-        target_link_libraries(line_follower.elf ${CMAKE_CURRENT_SOURCE_DIR}/../build/libmotor_control_atmega328p_stepc_timer1.a)
-    elseif("${SAMPLE_NO}" STREQUAL "4")
-        target_link_libraries(line_follower.elf ${CMAKE_CURRENT_SOURCE_DIR}/../build/libmotor_control_atmega328p_stepp_timer1.a)
-    elseif("${SAMPLE_NO}" STREQUAL "5")
-        target_link_libraries(line_follower.elf ${CMAKE_CURRENT_SOURCE_DIR}/../build/libmotor_control_atmega328p_dcservo_timer1.a)
-    else()
-        message(FATAL_ERROR "Unknown test: ${TEST}")
-    endif()
+    target_link_libraries(demo.elf ${CMAKE_CURRENT_SOURCE_DIR}/../build/libmotor_control_atmega328p_dcservo_timer1.a)
 
     # Přidejte pravidla pro generování HEX souboru
-    add_custom_command(TARGET line_follower.elf POST_BUILD
-        COMMAND avr-objcopy -O ihex -R .eeprom line_follower.elf line_follower.hex
+    add_custom_command(TARGET demo.elf POST_BUILD
+        COMMAND avr-objcopy -O ihex -R .eeprom demo.elf demo.hex
         COMMENT "Generating HEX file from ELF"
     )    # Možnost nahrát do Arduina pomocí `avrdude`
     add_custom_target(upload
-        #COMMAND avrdude -v -patmega328p -carduino -P/dev/ttyUSB0 -b115200 -D -Uflash:w:line_follower.hex:i
-        COMMAND avrdude -v -patmega328p -carduino -P/dev/ttyACM0 -b115200 -D -Uflash:w:line_follower.hex:i
-        DEPENDS line_follower.elf
+        #COMMAND avrdude -v -patmega328p -carduino -P/dev/ttyUSB0 -b115200 -D -Uflash:w:demo.hex:i
+        COMMAND avrdude -v -patmega328p -carduino -P/dev/ttyACM0 -b115200 -D -Uflash:w:demo.hex:i
+        DEPENDS demo.elf
         COMMENT "Uploading to Arduino"
     )
 
     add_custom_target(uploadUSB
-        #COMMAND avrdude -v -patmega328p -carduino -P/dev/ttyUSB0 -b115200 -D -Uflash:w:line_follower.hex:i
-        COMMAND avrdude -v -patmega328p -carduino -P/dev/ttyUSB0 -b115200 -D -Uflash:w:line_follower.hex:i
-        DEPENDS line_follower.elf
+        #COMMAND avrdude -v -patmega328p -carduino -P/dev/ttyUSB0 -b115200 -D -Uflash:w:demo.hex:i
+        COMMAND avrdude -v -patmega328p -carduino -P/dev/ttyUSB0 -b115200 -D -Uflash:w:demo.hex:i
+        DEPENDS demo.elf
         COMMENT "Uploading to Arduino"
     )
 

@@ -53,8 +53,6 @@ private:
     uint8_t error_code_;
 };
 
-using DCControlHBRidge = DCControlHBridge;
-
 #ifndef MOTOR_CONTROL_ERROR_CODES_DEFINED
 #define MOTOR_CONTROL_ERROR_CODES_DEFINED
 namespace ErrorCodes {

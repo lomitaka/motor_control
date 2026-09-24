@@ -16,23 +16,11 @@
 // Shared Timer1 configuration state.
 volatile uint8_t TimerControl::last_error_[5] = {0, 0, 0, 0, 0};
 bool TimerControl::initialized = false;
-volatile TimerMode TimerControl::timer_mode_ = TimerMode::Unconfigured;
 
 
 
 bool  TimerControl::isInitialized(){
     return initialized;
-}
-
-void TimerControl::setTimerMode(TimerMode mode) {
-    uint8_t saved_sreg = SREG;
-    cli();
-    timer_mode_ = mode;
-    SREG = saved_sreg;
-}
-
-TimerMode TimerControl::getTimerMode() {
-    return timer_mode_;
 }
 
 
@@ -52,7 +40,6 @@ void TimerControl::Timer1_Init() {
     TIMSK1 = (1 << OCIE1A) | (1 << OCIE1B) | (1 << TOIE1);
     TCCR1A = 0;                          // Normal mode (no PWM)
     TCCR1B =  (1 << WGM12) | (1 << CS10);//  Clears timer on Compare match A, Prescaler = 1 → timer runs at full CPU speed
-    timer_mode_ = TimerMode::DcServo;
 }
 
 void TimerControl::setPinHigh(uint8_t port_pin_code) {
@@ -88,30 +75,11 @@ void TimerControl::setup_Timers() {
 
 void OnTimer1CompareMatchDC();
 void OnTimer1CompareMatchServo();
-void OnTimer1StepperContinuousISR();
-void OnTimer1StepperPositioningOCRB();
-void OnTimer1StepperPositioningOverflow();
-void OnTimer1StepperPositioningOCRA();
-
-ISR(TIMER1_OVF_vect){
-    if (TimerControl::getTimerMode() == TimerMode::StepperPositioning) {
-        OnTimer1StepperPositioningOverflow();
-    }
-}
 
 // AVR interrupt vectors must be free functions rather than class members.
 ISR(TIMER1_COMPB_vect) {	
-    switch (TimerControl::getTimerMode()) {
-    case TimerMode::StepperPositioning:
-        OnTimer1StepperPositioningOCRB();
-        break;
-    case TimerMode::DcServo:
-        OnTimer1CompareMatchServo();
-        OnTimer1CompareMatchDC();
-        break;
-    default:
-        break;
-    }
+    OnTimer1CompareMatchServo();
+    OnTimer1CompareMatchDC();
 }
 
 void OnTimer1OwerflowServo();
@@ -119,18 +87,6 @@ void OnTimer1OwerflowDC();
 
 // In CTC mode Compare A is the PWM period boundary, not a hardware overflow.
 ISR(TIMER1_COMPA_vect) {
-    switch (TimerControl::getTimerMode()) {
-    case TimerMode::StepperPositioning:
-        OnTimer1StepperPositioningOCRA();
-        break;
-    case TimerMode::StepperContinuous:
-        OnTimer1StepperContinuousISR();
-        break;
-    case TimerMode::DcServo:
-        OnTimer1OwerflowServo();
-        OnTimer1OwerflowDC();
-        break;
-    default:
-        break;
-    }
+    OnTimer1OwerflowServo();
+    OnTimer1OwerflowDC();
 }

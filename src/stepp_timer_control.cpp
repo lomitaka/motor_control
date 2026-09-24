@@ -1,5 +1,4 @@
 #include "internals/stepp_timer_control.h"
-#include "internals/timer_control.h"
 
 #ifdef SIMULATION_MODE
     #include "simulator/avr_mock.h"
@@ -42,12 +41,23 @@ void SteppTimerControl::Timer1_Init() {
     TCCR1B = (1 << CS10);
     
     initialized_ = true;
-    TimerControl::setTimerMode(TimerMode::StepperPositioning);
     SREG = saved_sreg;
 }
 
 bool SteppTimerControl::isInitialized() {
     return initialized_;
+}
+
+ISR(TIMER1_OVF_vect) {
+    OnTimer1StepperPositioningOverflow();
+}
+
+ISR(TIMER1_COMPA_vect) {
+    OnTimer1StepperPositioningOCRA();
+}
+
+ISR(TIMER1_COMPB_vect) {
+    OnTimer1StepperPositioningOCRB();
 }
 
 
