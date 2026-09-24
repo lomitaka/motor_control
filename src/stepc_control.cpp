@@ -126,8 +126,11 @@ void StepperContinuous::setTargetSpeed(int16_t steps_per_sec) {
     target_speeds_[motor_index_] = steps_per_sec;
     sei();
     
-    // Update direction immediately
-    updateDirection();
+    // Update direction immediately (if motor has no speed)
+    if (current_speeds_[motor_index_] == 0){
+        updateDirection();
+    } 
+    
 }
 
 void StepperContinuous::setAcceleration(uint16_t steps_per_sec2) {
@@ -269,7 +272,7 @@ void OnTimer1StepperContinuousISR() {
             if (current != target) {
                 // Use pre-calculated speed change (NO division in ISR!)
                 uint16_t speed_change = interval_changes[i];
-                
+                uint16_t current_old = current;
                 // Move towards target
                 if (current < target) {
                     current += speed_change;
@@ -277,6 +280,14 @@ void OnTimer1StepperContinuousISR() {
                 } else {
                     current -= speed_change;
                     if (current < target) current = target;
+                }
+
+                if ((current > 0) !=  (current_old > 0) ||  mabs(current) < 100){
+                    if (current >= 0) {
+                    digitalWrite(StepperContinuous::dir_pins_[i], HIGH);  // Clockwise
+                            } else {
+                    digitalWrite(StepperContinuous::dir_pins_[i], LOW);   // Counter-clockwise
+                    }
                 }
                 
                 StepperContinuous::current_speeds_[i] = current;
